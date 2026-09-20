@@ -36,21 +36,28 @@ in the scheduling tool where it belongs.
 
 ## Quick start
 
-No dependencies, no build step, no install:
+Clone the repo, then install it in place (still no required dependencies --
+this only registers the `setm` command):
 
 ```bash
-git clone <this repo> && cd SETM
-python3 -m setm demo json:./data/demo.json     # build the worked example
-python3 -m setm serve json:./data/demo.json --open
-```
-
-Then open <http://127.0.0.1:8765>. Or install it properly:
-
-```bash
+git clone <this repo>
+cd SETM                   # the folder containing pyproject.toml, NOT the setm/ subfolder
 pip install -e .          # core: standard library only
-pip install -e '.[all]'   # YAML ontologies, Google, rdflib, ASGI
-setm --help
+pip install -e '.[all]'   # optional: YAML ontologies, Google, rdflib, ASGI
+
+setm demo                 # build the worked example
+setm serve --open
 ```
+
+Then open <http://127.0.0.1:8765>.
+
+**Windows note:** if `setm` isn't found after install, use `python -m setm` in
+its place -- but do this *after* `pip install -e .`, not instead of it. Without
+an install, `python -m setm ...` only works when your current directory is
+the repo root (the one with `pyproject.toml`), and on a case-insensitive
+filesystem it is easy to `cd` one folder too far, into `setm/` itself, where
+`No module named setm` is the result. Installing removes that trap entirely:
+both `setm` and `python -m setm` then work from anywhere.
 
 The demo is a Phase B satellite payload programme: 4 objectives, 5 gates,
 4 work packages, 13 activities, a 7-tool engineering chain, requirements, risks
