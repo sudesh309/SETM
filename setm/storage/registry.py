@@ -88,7 +88,16 @@ def open_storage(uri: str, **overrides: Any) -> StorageBackend:
 
 def load_builtin_backends() -> None:
     """Import the shipped backends. Optional dependencies fail lazily, at use."""
-    from . import gdrive, gitlab, http_api, local_json, memory, rdf_store, sqlite_store  # noqa: F401
+    from . import (  # noqa: F401
+        gdrive,
+        gitlab,
+        gsheet,
+        http_api,
+        local_json,
+        memory,
+        rdf_store,
+        sqlite_store,
+    )
 
 
 def describe_all() -> list[dict[str, Any]]:

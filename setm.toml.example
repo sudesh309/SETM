@@ -2,14 +2,17 @@
 # by a SETM_* environment variable, and those by a command-line flag.
 
 [setm]
-# Where the graph lives. GitLab is the default: every save is a commit, so the
-# graph sits under the configuration management and audit trail the programme
-# already has. Leave the project blank and SETM resolves it from
-# SETM_GITLAB_PROJECT or from the origin remote of the surrounding checkout.
-storage  = "gitlab:my-group/my-project?path=systems/graph.json&branch=main"
+# Where the graph lives. A local JSON file is the default: no credentials, no
+# network, nothing to set up.
+storage  = "json:./data/project.json"
 
-# Local or alternative backends, one flag or one line away:
-# storage = "json:./data/project.json"
+# For a real programme, move it to GitLab: every save becomes a commit, so the
+# graph sits under the configuration management and audit trail you already
+# have. Leave the project blank and SETM resolves it from SETM_GITLAB_PROJECT
+# or from the origin remote of the surrounding checkout.
+# storage = "gitlab:my-group/my-project?path=systems/graph.json&branch=main"
+
+# Other backends:
 # storage = "sqlite:./data/project.db"
 # storage = "rdf:./data/project.ttl"
 # storage = "gsheet:1AbCdEfGhIjKlMnOpQrStUvWxYz"
@@ -22,7 +25,7 @@ ontology = "aerospace-se-core"
 # vocabulary has settled; leave off while importing legacy data.
 strict   = false
 
-# Write to storage after every change. With GitLab that means a commit per
+# Write to storage after every change. On GitLab that means a commit per
 # change: turn it off for a review session and save once, deliberately.
 autosave = true
 

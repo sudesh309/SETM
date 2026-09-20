@@ -56,11 +56,15 @@ The demo is a Phase B satellite payload programme: 4 objectives, 5 gates,
 4 work packages, 13 activities, a 7-tool engineering chain, requirements, risks
 and processes, all linked.
 
-### For a real programme: GitLab
+### Where the graph lives
 
-**GitLab is the default backend.** A programme's graph belongs under the same
-configuration management, access control and audit trail as the rest of its
-engineering data, and every save becoming a reviewable commit is the point.
+The default is a **local JSON file** — no credentials, no network, no setup, so
+the tool works the moment it is unpacked. Everything else is one flag away, and
+`setm convert` moves a graph between any two backends.
+
+When the project is real, move it to **GitLab**, where each save becomes a
+reviewable commit under the configuration management the organisation already
+runs:
 
 ```bash
 export SETM_GITLAB_TOKEN=glpat-...             # scope: api
@@ -70,10 +74,10 @@ setm serve gitlab:my-group/my-project
 
 The project may be left out entirely — SETM resolves it from
 `SETM_GITLAB_PROJECT`, or from the `origin` remote of the checkout you are
-standing in, so inside a repository `setm serve` usually just works. Concurrent
-edits are safe: a save carries the commit the graph was read at, so GitLab
-rejects a write that would clobber a colleague's, and SETM tells you to reload
-rather than silently winning.
+standing in, so `setm serve gitlab:` inside a repository usually just works.
+Concurrent edits are safe: a save carries the commit the graph was read at, so
+GitLab rejects a write that would clobber a colleague's, and SETM tells you to
+reload rather than silently winning.
 
 ## What you get
 
@@ -132,8 +136,8 @@ lives. Pick one with a URI:
 
 | URI | Notes |
 |---|---|
-| `gitlab:group/project?path=se/graph.json&branch=main` | **the default.** Every save is a commit: review, blame, rollback, and a compare-and-swap that refuses to clobber a colleague |
-| `json:./data/project.json` | local file; atomic writes with rolling backups |
+| `json:./data/project.json` | **the default.** Local file, atomic writes with rolling backups; nothing to configure |
+| `gitlab:group/project?path=se/graph.json&branch=main` | the one to move to for a real programme. Every save is a commit: review, blame, rollback, and a compare-and-swap that refuses to clobber a colleague |
 | `sqlite:./data/project.db` | single file, plus an append-only change log |
 | `rdf:./data/project.ttl` | Turtle/OWL; add `?sparql=<endpoint>` to push to a triple store |
 | `gsheet:<spreadsheet-id>` | one worksheet per element type — engineers edit it in the browser |
@@ -144,11 +148,12 @@ lives. Pick one with a URI:
 A bare path works too — `setm serve ./project.ttl` infers the backend from the
 extension.
 
-A bare `gitlab:` resolves its project from `SETM_GITLAB_PROJECT` or the
-surrounding checkout's `origin` remote. Any other backend is one flag away:
-`--storage json:./data/project.json` for a local experiment,
-`--storage gsheet:<id>` when a work package leader wants to bulk-edit in a
-browser. `setm convert` moves a graph between any two of them.
+Switching is one flag: `--storage sqlite:./data/project.db` once a JSON file
+feels small, `--storage gsheet:<id>` when a work package leader wants to
+bulk-edit in a browser, `--storage gitlab:my-group/my-project` when the graph
+needs an audit trail. A bare `gitlab:` resolves its project from
+`SETM_GITLAB_PROJECT` or the surrounding checkout's `origin` remote.
+`setm convert` moves an existing graph between any two of them, losslessly.
 
 Credentials are never stored in the graph:
 
@@ -407,7 +412,8 @@ command-line flags. Copy `setm.toml.example` to `setm.toml` to start.
 
 ## Status
 
-Working MVP, with GitLab as the default home for a programme's graph.
+Working MVP. A local JSON file out of the box; GitLab when the graph needs
+the organisation's configuration management behind it.
 
 Sensible next steps: multi-user write concurrency beyond the compare-and-swap
 GitLab gives (the in-memory graph is still single-writer), a diff view between

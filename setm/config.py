@@ -16,14 +16,13 @@ DEFAULT_CONFIG_FILE = "setm.toml"
 
 @dataclass
 class Settings:
-    #: Storage URI (see setm.storage.registry). GitLab is the default: a
-    #: programme's graph belongs under the same configuration management,
-    #: access control and audit trail as the rest of its engineering data, and
-    #: every save becoming a reviewable commit is the point.
-    #: A bare ``gitlab:`` resolves the project from SETM_GITLAB_PROJECT or from
-    #: the surrounding checkout's origin remote; every other backend is one
-    #: flag away, e.g. ``--storage json:./data/project.json``.
-    storage: str = "gitlab:?path=setm/graph.json"
+    #: Storage URI (see setm.storage.registry). A local JSON file is the
+    #: default: it needs no credentials, no network and no prior setup, so the
+    #: tool works the moment it is unpacked. Every other backend is one flag
+    #: away -- ``--storage gitlab:my-group/my-project`` for a programme that
+    #: wants each save to be a reviewable commit, ``sqlite:``, ``rdf:``,
+    #: ``gsheet:`` and the rest likewise.
+    storage: str = "json:./data/project.json"
     #: Ontology file path or the name of a built-in ontology.
     ontology: str = "aerospace-se-core"
     #: Extra ontology files layered on top of the main one.

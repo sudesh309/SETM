@@ -1,4 +1,4 @@
-"""GitLab repository backend -- SETM's default.
+"""GitLab repository backend.
 
 The graph lives as a file in a Git repository, so every save is a commit: you get
 review, blame, branches and rollback from infrastructure the organisation already
@@ -9,10 +9,14 @@ Target form::
 
     gitlab:my-group/my-project?path=systems/graph.json&branch=main
 
+This is the backend to choose for a real programme: the graph lands under the
+configuration management, access control and audit trail the organisation
+already runs and already trusts.
+
 The project may be left out entirely (``gitlab:``) and SETM will resolve it from
 ``SETM_GITLAB_PROJECT`` or, failing that, from the ``origin`` remote of the
-repository you are standing in -- so ``setm serve`` inside a checkout usually
-just works.
+repository you are standing in -- so ``setm serve gitlab:`` inside a checkout
+usually just works.
 
 Options: ``host`` (default ``https://gitlab.com``, or the host of the detected
 remote), ``token`` (or ``SETM_GITLAB_TOKEN`` / ``GITLAB_TOKEN``), ``path``,
@@ -117,11 +121,11 @@ class GitLabBackend(StorageBackend):
         self._loaded_commit_id = ""
         if not self.project:
             raise ConfigError(
-                "No GitLab project. SETM defaults to GitLab storage; tell it which repository:\n"
+                "No GitLab project given. Name one of:\n"
                 "  setm serve gitlab:my-group/my-project?path=systems/graph.json\n"
                 "  export SETM_GITLAB_PROJECT=my-group/my-project\n"
-                "  or run inside a checkout whose 'origin' remote points at GitLab.\n"
-                "For a local file instead: setm serve json:./data/project.json"
+                "  or run `setm serve gitlab:` inside a checkout whose 'origin' "
+                "remote points at GitLab."
             )
 
     def _ontology(self) -> Any:

@@ -199,14 +199,24 @@ def test_json_document_survives_a_full_serialise_cycle(demo_document):
     assert normalise(restored) == normalise(demo_document)
 
 
-# -- GitLab, the default backend -------------------------------------------
+# -- defaults ---------------------------------------------------------------
 
-def test_gitlab_is_the_default_storage():
+def test_a_local_json_file_is_the_default_storage():
+    """The tool must work with no credentials, no network and no setup."""
     from setm.config import Settings
 
-    scheme, _, options = parse_uri(Settings().storage)
-    assert scheme == "gitlab"
-    assert options["path"].endswith(".json")
+    scheme, target, _ = parse_uri(Settings().storage)
+    assert scheme == "json"
+    assert target.endswith(".json")
+
+
+def test_every_backend_is_reachable_by_uri():
+    from setm.storage.registry import available_schemes
+
+    assert {"json", "sqlite", "rdf", "gitlab", "gsheet", "gdrive", "http", "memory"} <= set(available_schemes())
+
+
+# -- GitLab -----------------------------------------------------------------
 
 
 @pytest.mark.parametrize(
@@ -254,7 +264,7 @@ def test_gitlab_without_a_project_explains_how_to_set_one(monkeypatch, tmp_path)
     with pytest.raises(ConfigError) as exc:
         open_storage("gitlab:")
     assert "SETM_GITLAB_PROJECT" in exc.value.message
-    assert "json:./data/project.json" in exc.value.message  # the local escape hatch
+    assert "gitlab:my-group/my-project" in exc.value.message
 
 
 def test_gitlab_requires_a_token_before_touching_the_network(monkeypatch):
@@ -270,3 +280,19 @@ def test_gitlab_describes_itself_as_versioned():
     assert info["versioned"] is True
     assert info["branch"] == "dev"
     assert info["format"] == "ttl"  # inferred from the path
+
+
+def test_gsheet_backend_is_registered_and_constructible():
+    """It is listed in the docs and the URI table, so it must actually load."""
+    backend = open_storage("gsheet:1AbCdEfGhIjKlMnOpQrStUvWxYz")
+    info = backend.describe()
+    assert info["scheme"] == "gsheet"
+    assert info["writable"] is True
+    assert info["url"].endswith("1AbCdEfGhIjKlMnOpQrStUvWxYz")
+
+
+def test_gsheet_reports_unconfigured_rather_than_crashing(monkeypatch):
+    monkeypatch.delenv("SETM_GOOGLE_TOKEN", raising=False)
+    monkeypatch.delenv("GOOGLE_APPLICATION_CREDENTIALS", raising=False)
+    health = open_storage("gsheet:abc").health()
+    assert health["status"] in ("unconfigured", "error")
