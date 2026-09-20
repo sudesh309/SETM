@@ -147,3 +147,85 @@ def test_reset_clears_everything():
     telemetry.increment("x")
     telemetry.reset()
     assert telemetry.snapshot()["counters"] == {}
+
+
+# -- tools ------------------------------------------------------------------
+
+def test_tool_kpis_are_computed(demo_store):
+    report = compute_kpis(demo_store)
+    linkage = kpi_by_id(report, "tool_linkage")
+    assert linkage["available"] and linkage["value"] > 50
+
+    qualification = kpi_by_id(report, "tool_qualification")
+    # Two demo tools are mid-qualification, so this must not read as clean.
+    assert qualification["value"] < 100
+    outstanding = {t["label"] for t in qualification["detail"]["unlinked"]}
+    assert "Zemax OpticStudio" in outstanding
+
+
+def test_manual_tool_handovers_are_counted_and_named(demo_store):
+    kpi = kpi_by_id(compute_kpis(demo_store), "manual_tool_handovers")
+    assert kpi["direction"] == "lower_better"
+    assert kpi["value"] == len(kpi["detail"]["handovers"])
+    assert all({"from", "to", "format"} <= set(h) for h in kpi["detail"]["handovers"])
+
+
+def test_tool_usage_reports_the_chain(demo_store):
+    from setm.kpi.metrics import tool_usage
+
+    tools = tool_usage(demo_store)
+    assert tools
+    assert [t["activity_count"] for t in tools] == sorted([t["activity_count"] for t in tools], reverse=True)
+    zemax = next(t for t in tools if t["label"] == "Zemax OpticStudio")
+    assert zemax["administrators"] == ["C. Laurent"]
+    assert zemax["qualification_status"] == "in_qualification"
+    assert any(hop["tool"] == "MATLAB / Simulink" for hop in zemax["feeds"])
+
+
+def test_adding_an_activity_without_a_tool_moves_tool_linkage(demo_store):
+    before = kpi_by_id(compute_kpis(demo_store), "tool_linkage")["value"]
+    demo_store.add_node("Activity", {"name": "Toolless work"}, node_id="act.notool")
+    after = kpi_by_id(compute_kpis(demo_store), "tool_linkage")
+    assert after["value"] < before
+    assert "act.notool" in {g["id"] for g in after["detail"]["unlinked"]}
+
+
+# -- weighting --------------------------------------------------------------
+
+def test_weight_breakdown_covers_elements_and_relations(demo_store):
+    from setm.kpi.metrics import weight_breakdown
+
+    breakdown = weight_breakdown(demo_store)
+    assert set(breakdown) == {"elements", "relations"}
+    assert list(breakdown["elements"]) == ["high", "medium", "low"]
+    assert sum(breakdown["elements"].values()) == demo_store.node_count
+    assert sum(breakdown["relations"].values()) == demo_store.edge_count
+
+
+def test_unset_weight_counts_as_high(empty_store):
+    from setm.kpi.metrics import element_weight, weight_breakdown
+
+    node = empty_store.add_node("Activity", {"name": "x"})
+    node.properties.pop("weight")  # simulate data imported before weighting existed
+    assert element_weight(empty_store.ontology, node) == "high"
+    assert weight_breakdown(empty_store)["elements"]["high"] == 1
+
+
+def test_high_weight_traceability_ignores_low_weight_gaps(demo_store):
+    before = kpi_by_id(compute_kpis(demo_store), "high_weight_traceability")["value"]
+    demo_store.add_node("Activity", {"name": "Minor chore", "weight": "low"}, node_id="act.minor")
+    assert kpi_by_id(compute_kpis(demo_store), "high_weight_traceability")["value"] == before
+
+    demo_store.add_node("Activity", {"name": "Major gap", "weight": "high"}, node_id="act.major")
+    after = kpi_by_id(compute_kpis(demo_store), "high_weight_traceability")
+    assert after["value"] < before
+    assert "act.major" in {g["id"] for g in after["detail"]["unlinked"]}
+    assert "who" in next(g for g in after["detail"]["unlinked"] if g["id"] == "act.major")["missing"]
+
+
+def test_gap_lists_lead_with_the_heaviest_elements(demo_store):
+    for index, weight in enumerate(["low", "high", "medium"]):
+        demo_store.add_node("Activity", {"name": f"Gap {index}", "weight": weight}, node_id=f"act.gap{index}")
+    gaps = kpi_by_id(compute_kpis(demo_store), "activity_ownership")["detail"]["unassigned"]
+    weights = [g["properties"]["weight"] for g in gaps]
+    assert weights == ["high", "medium", "low"]

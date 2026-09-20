@@ -202,3 +202,94 @@ def test_overlay_graph_validates_and_scores(demo_document):
     assert validate_document(onto, demo_document)["valid"] is True
     report = compute_kpis(GraphStore(demo_document, onto))
     assert report["health_score"]["value"] is not None
+
+
+# -- weighting and default properties ---------------------------------------
+
+def test_weight_reaches_every_node_and_edge_type(ontology):
+    """`default_properties` is how a cross-cutting attribute covers edge types,
+    which have no inheritance of their own."""
+    for spec in ontology.node_types.values():
+        assert "weight" in spec.properties, spec.name
+    for spec in ontology.edge_types.values():
+        assert "weight" in spec.properties, spec.name
+
+
+def test_weight_defaults_to_high(ontology, empty_store):
+    node = empty_store.add_node("Activity", {"name": "Unweighted"})
+    assert node.properties["weight"] == "high"
+    spec = ontology.node_types["Activity"].properties["weight"]
+    assert spec.values == ["low", "medium", "high"]
+
+
+def test_weight_rejects_anything_outside_the_three_levels(empty_store):
+    with pytest.raises(ValidationError, match="not one of"):
+        empty_store.add_node("Activity", {"name": "x", "weight": "critical"})
+
+
+def test_relations_carry_weight_too(empty_store):
+    empty_store.add_node("Person", {"name": "A"}, node_id="p1")
+    empty_store.add_node("Activity", {"name": "T"}, node_id="a1")
+    edge = empty_store.add_edge("RESPONSIBLE_FOR", "p1", "a1", {"weight": "low"})
+    assert edge.properties["weight"] == "low"
+    default_edge = empty_store.add_edge("ACCOUNTABLE_FOR", "p1", "a1")
+    assert default_edge.properties["weight"] == "high"
+
+
+def test_a_type_can_override_the_default_property():
+    raw = {
+        **MINIMAL,
+        "property_sets": {"w": {"weight": {"type": "enum", "values": ["a", "b"], "default": "a"}}},
+        "default_properties": {"node_types": ["w"], "edge_types": ["w"]},
+        "node_types": {
+            **MINIMAL["node_types"],
+            "Task": {
+                "extends": "Base",
+                "properties": {"weight": {"type": "string", "default": "bespoke"}},
+            },
+        },
+    }
+    onto = build_ontology(raw)
+    assert onto.node_types["Task"].properties["weight"].datatype == "string"
+    assert onto.node_types["Gate"].properties["weight"].datatype == "enum"
+    assert "weight" in onto.edge_types["DUE_AT"].properties
+
+
+def test_unknown_default_property_set_is_rejected():
+    raw = {**MINIMAL, "default_properties": {"node_types": ["nonexistent"]}}
+    with pytest.raises(OntologyError, match="unknown property set"):
+        build_ontology(raw)
+
+
+# -- tools ------------------------------------------------------------------
+
+def test_tool_is_a_first_class_element(ontology):
+    tool = ontology.node_types["Tool"]
+    assert tool.category == "How"
+    assert not tool.abstract
+    for name in ("tool_type", "vendor", "version", "qualification_status", "licence_model"):
+        assert name in tool.properties
+
+
+def test_tool_relations_are_declared(ontology):
+    assert ontology.edge_role("uses_tool") == "USES_TOOL"
+    assert ontology.edge_role("administers") == "ADMINISTERS"
+    assert ontology.node_role("tool") == "Tool"
+    uses = ontology.edge_types["USES_TOOL"]
+    assert uses.domain == ["Activity"] and uses.range == ["Tool"]
+    assert uses.question == "how"
+
+
+def test_activity_may_use_a_tool_but_a_tool_may_not_use_an_activity(empty_store):
+    empty_store.add_node("Activity", {"name": "Analysis"}, node_id="a1")
+    empty_store.add_node("Tool", {"name": "MATLAB"}, node_id="t1")
+    empty_store.add_edge("USES_TOOL", "a1", "t1")
+    with pytest.raises(ValidationError, match="cannot start at"):
+        empty_store.add_edge("USES_TOOL", "t1", "a1")
+
+
+def test_tool_chain_links_tools_to_each_other(empty_store):
+    empty_store.add_node("Tool", {"name": "DOORS"}, node_id="t1")
+    empty_store.add_node("Tool", {"name": "Cameo"}, node_id="t2")
+    edge = empty_store.add_edge("EXCHANGES_DATA_WITH", "t1", "t2", {"exchange_format": "ReqIF", "automated": True})
+    assert edge.properties["automated"] is True

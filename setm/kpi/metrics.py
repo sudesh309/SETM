@@ -58,6 +58,40 @@ def _percentage(part: int, whole: int) -> float:
     return 100.0 * part / whole if whole else 0.0
 
 
+#: High first: a gap list should lead with what the programme said matters most.
+WEIGHT_ORDER = {"high": 0, "medium": 1, "low": 2}
+DEFAULT_WEIGHT = "high"
+
+
+def element_weight(ontology: Any, element: Any) -> str:
+    """The weight of a node or edge, falling back to the ontology's default."""
+    prop = ontology.role("weight_property", "weight")
+    value = element.properties.get(prop)
+    return str(value) if value in WEIGHT_ORDER else DEFAULT_WEIGHT
+
+
+def _by_weight(ontology: Any, nodes: list[Any]) -> list[Any]:
+    return sorted(nodes, key=lambda n: (WEIGHT_ORDER[element_weight(ontology, n)], n.label))
+
+
+def weight_breakdown(store: GraphStore) -> dict[str, dict[str, int]]:
+    """How the graph is distributed across low/medium/high, for elements and relations."""
+    ontology = store.ontology
+    nodes: dict[str, int] = {}
+    edges: dict[str, int] = {}
+    for node in store.nodes():
+        key = element_weight(ontology, node)
+        nodes[key] = nodes.get(key, 0) + 1
+    for edge in store.edges():
+        key = element_weight(ontology, edge)
+        edges[key] = edges.get(key, 0) + 1
+    order = list(WEIGHT_ORDER)
+    return {
+        "elements": {k: nodes.get(k, 0) for k in order},
+        "relations": {k: edges.get(k, 0) for k in order},
+    }
+
+
 def compute_kpis(store: GraphStore, *, targets: dict[str, float] | None = None) -> dict[str, Any]:
     """Full KPI report: coverage, traceability, ownership, milestone readiness."""
     ontology = store.ontology
@@ -81,6 +115,9 @@ def compute_kpis(store: GraphStore, *, targets: dict[str, float] | None = None) 
     status_property = ontology.role("status_property", "status")
 
     activities = store.nodes_of_type(activity_type) if activity_type else []
+    # Completeness is the most expensive thing here and three KPIs plus the
+    # work-package breakdown need it, so it is computed once and shared.
+    completeness_by_id = {a.id: completeness(store, a.id) for a in activities}
 
     # -- 1. Why: objectives actually supported by work ----------------------
     if objective_type and supports:
@@ -93,7 +130,7 @@ def compute_kpis(store: GraphStore, *, targets: dict[str, float] | None = None) 
                 _percentage(len(objectives) - len(unsupported), len(objectives)),
                 target=targets["objective_coverage"],
                 description="Share of project objectives with at least one activity declared to support them.",
-                detail={"total": len(objectives), "uncovered": [_ref(o) for o in unsupported]},
+                detail={"total": len(objectives), "uncovered": [_ref(o, ("weight",)) for o in _by_weight(ontology, unsupported)]},
             )
         )
     else:
@@ -109,7 +146,7 @@ def compute_kpis(store: GraphStore, *, targets: dict[str, float] | None = None) 
                 _percentage(len(activities) - len(unassigned), len(activities)),
                 target=targets["activity_ownership"],
                 description="Share of activities with a responsible engineer assigned.",
-                detail={"total": len(activities), "unassigned": [_ref(a) for a in unassigned]},
+                detail={"total": len(activities), "unassigned": [_ref(a, ("weight",)) for a in _by_weight(ontology, unassigned)]},
             )
         )
     else:
@@ -125,7 +162,7 @@ def compute_kpis(store: GraphStore, *, targets: dict[str, float] | None = None) 
                 _percentage(len(activities) - len(unscheduled), len(activities)),
                 target=targets["milestone_anchoring"],
                 description="Share of activities whose delivery point is tied to a programme milestone.",
-                detail={"total": len(activities), "unanchored": [_ref(a) for a in unscheduled]},
+                detail={"total": len(activities), "unanchored": [_ref(a, ("weight",)) for a in _by_weight(ontology, unscheduled)]},
             )
         )
     else:
@@ -141,7 +178,7 @@ def compute_kpis(store: GraphStore, *, targets: dict[str, float] | None = None) 
                 _percentage(len(activities) - len(without_process), len(activities)),
                 target=targets["process_linkage"],
                 description="Share of activities traced to a declared systems-engineering process.",
-                detail={"total": len(activities), "unlinked": [_ref(a) for a in without_process]},
+                detail={"total": len(activities), "unlinked": [_ref(a, ("weight",)) for a in _by_weight(ontology, without_process)]},
             )
         )
         if process_type:
@@ -154,7 +191,7 @@ def compute_kpis(store: GraphStore, *, targets: dict[str, float] | None = None) 
                     _percentage(len(processes) - len(unused), len(processes)),
                     target=targets["process_utilisation"],
                     description="Processes the project claims to follow that have at least one activity behind them.",
-                    detail={"total": len(processes), "unused": [_ref(p) for p in unused]},
+                    detail={"total": len(processes), "unused": [_ref(p, ("weight",)) for p in _by_weight(ontology, unused)]},
                 )
             )
     else:
@@ -171,13 +208,112 @@ def compute_kpis(store: GraphStore, *, targets: dict[str, float] | None = None) 
                 _percentage(len(requirements) - len(unverified), len(requirements)),
                 target=targets["verification_coverage"],
                 description="Share of requirements that some activity is committed to verifying.",
-                detail={"total": len(requirements), "unverified": [_ref(r) for r in unverified[:100]]},
+                detail={"total": len(requirements), "unverified": [_ref(r, ("weight",)) for r in _by_weight(ontology, unverified)[:100]]},
             )
         )
 
-    # -- 6. Overall traceability completeness -------------------------------
+    # -- 6. Tools: the engineering chain ------------------------------------
+    tool_type = ontology.node_role("tool")
+    uses_tool = ontology.edge_role("uses_tool")
+    if activities and tool_type and uses_tool:
+        without_tool = [a for a in activities if not store.out_edges(a.id, [uses_tool])]
+        kpis.append(
+            _kpi(
+                "tool_linkage",
+                "Activities linked to a tool",
+                _percentage(len(activities) - len(without_tool), len(activities)),
+                target=targets["tool_linkage"],
+                description="Share of activities that name the tool the work is actually done in.",
+                detail={
+                    "total": len(activities),
+                    "unlinked": [_ref(a, ("weight",)) for a in _by_weight(ontology, without_tool)],
+                },
+            )
+        )
+
+        tools_in_use = [t for t in store.nodes_of_type(tool_type) if store.in_edges(t.id, [uses_tool])]
+        cleared = {"qualified", "not_required", "waived"}
+        outstanding = [
+            t for t in tools_in_use if str(t.properties.get("qualification_status") or "") not in cleared
+        ]
+        kpis.append(
+            _kpi(
+                "tool_qualification",
+                "Tools in use with qualification settled",
+                _percentage(len(tools_in_use) - len(outstanding), len(tools_in_use)),
+                target=targets["tool_qualification"],
+                description=(
+                    "Tools an activity depends on whose qualification is decided - qualified, "
+                    "waived, or explicitly not required. An open question here becomes a finding "
+                    "when the authority asks how the evidence was produced."
+                ),
+                detail={
+                    "total": len(tools_in_use),
+                    "unlinked": [_ref(t, ("weight", "qualification_status")) for t in _by_weight(ontology, outstanding)],
+                },
+            )
+        )
+
+        exchanges = ontology.edge_role("exchanges_data")
+        if exchanges:
+            hops = store.edges_of_type(exchanges)
+            manual = [h for h in hops if not h.properties.get("automated")]
+            kpis.append(
+                _kpi(
+                    "manual_tool_handovers",
+                    "Manual hand-overs in the tool chain",
+                    float(len(manual)),
+                    unit="",
+                    target=targets["manual_tool_handovers"],
+                    direction="lower_better",
+                    description=(
+                        "Tool-to-tool links that are not automated. Every one is a place data is "
+                        "re-keyed, and re-keying is where the model and the analysis drift apart."
+                    ),
+                    detail={
+                        "total": len(hops),
+                        "handovers": [
+                            {
+                                "edge_id": h.id,
+                                "from": store.node(h.source).label,
+                                "to": store.node(h.target).label,
+                                "format": h.properties.get("exchange_format", ""),
+                            }
+                            for h in manual
+                        ],
+                    },
+                )
+            )
+
+    # -- 7. Weight: are the elements that matter actually traced? -----------
     if activities:
-        scores = [completeness(store, a.id)["score"] for a in activities]
+        heavy = [a for a in activities if element_weight(ontology, a) == "high"]
+        if heavy:
+            incomplete = [a for a in heavy if completeness_by_id[a.id]["score"] < 1.0]
+            kpis.append(
+                _kpi(
+                    "high_weight_traceability",
+                    "High-weight activities fully traced",
+                    _percentage(len(heavy) - len(incomplete), len(heavy)),
+                    target=targets["high_weight_traceability"],
+                    description=(
+                        "Of the activities the programme marked high weight, the share that can "
+                        "answer every who/when/why/how question. Weight is what makes an average "
+                        "actionable: a gap here is one the programme itself called important."
+                    ),
+                    detail={
+                        "total": len(heavy),
+                        "unlinked": [
+                            {**_ref(a, ("weight",)), "missing": sorted(completeness_by_id[a.id]["missing"])}
+                            for a in _by_weight(ontology, incomplete)
+                        ],
+                    },
+                )
+            )
+
+    # -- 8. Overall traceability completeness -------------------------------
+    if activities:
+        scores = [completeness_by_id[a.id]["score"] for a in activities]
         kpis.append(
             _kpi(
                 "traceability_completeness",
@@ -189,7 +325,7 @@ def compute_kpis(store: GraphStore, *, targets: dict[str, float] | None = None) 
             )
         )
 
-    # -- 7. Hygiene: orphans and circular dependencies ----------------------
+    # -- 9. Hygiene: orphans and circular dependencies ----------------------
     orphan_list = orphans(store)
     kpis.append(
         _kpi(
@@ -225,9 +361,11 @@ def compute_kpis(store: GraphStore, *, targets: dict[str, float] | None = None) 
         "breakdowns": {
             "by_milestone": milestone_load(store),
             "by_person": workload(store),
-            "by_work_package": work_package_health(store),
+            "by_work_package": work_package_health(store, completeness_by_id=completeness_by_id),
             "by_status": status_breakdown(store, activity_type, status_property),
             "by_type": store.stats()["nodes_by_type"],
+            "by_weight": weight_breakdown(store),
+            "by_tool": tool_usage(store),
         },
     }
     # Unused-variable guards for roles reported only in breakdowns.
@@ -244,7 +382,9 @@ def compute_kpis(store: GraphStore, *, targets: dict[str, float] | None = None) 
 
 
 #: Properties carried on board rows so the UI can show status without extra calls.
-_BOARD_PROPERTIES = ("status", "activity_type", "deliverable_type", "maturity", "progress_percent")
+_BOARD_PROPERTIES = (
+    "status", "activity_type", "deliverable_type", "maturity", "progress_percent", "weight",
+)
 
 DEFAULT_TARGETS: dict[str, float] = {
     "objective_coverage": 100.0,
@@ -254,6 +394,10 @@ DEFAULT_TARGETS: dict[str, float] = {
     "process_utilisation": 70.0,
     "verification_coverage": 90.0,
     "traceability_completeness": 80.0,
+    "tool_linkage": 80.0,
+    "tool_qualification": 100.0,
+    "manual_tool_handovers": 0.0,
+    "high_weight_traceability": 95.0,
     "orphan_rate": 5.0,
     "dependency_cycles": 0.0,
 }
@@ -375,8 +519,16 @@ def workload(store: GraphStore, *, top: int = 50) -> list[dict[str, Any]]:
     return out[:top]
 
 
-def work_package_health(store: GraphStore) -> list[dict[str, Any]]:
+def work_package_health(
+    store: GraphStore, *, completeness_by_id: dict[str, dict[str, Any]] | None = None
+) -> list[dict[str, Any]]:
+    """Per work package: how much is done, and how well it is traced.
+
+    ``completeness_by_id`` lets the full report reuse scores it already
+    computed; called on its own the function works them out itself.
+    """
     ontology = store.ontology
+    scores_for = completeness_by_id if completeness_by_id is not None else {}
     work_package_type = ontology.node_role("work_package")
     contains = ontology.edge_role("contains")
     status_property = ontology.role("status_property", "status")
@@ -390,7 +542,9 @@ def work_package_health(store: GraphStore) -> list[dict[str, Any]]:
         done = [
             a for a in activities if str(a.properties.get(status_property) or "").lower() in done_values
         ]
-        scores = [completeness(store, a.id)["score"] for a in activities]
+        scores = [
+            (scores_for.get(a.id) or completeness(store, a.id))["score"] for a in activities
+        ]
         leader = ""
         led_by = ontology.edge_role("led_by")
         if led_by:
@@ -409,6 +563,56 @@ def work_package_health(store: GraphStore) -> list[dict[str, Any]]:
             }
         )
     out.sort(key=lambda item: item["label"])
+    return out
+
+
+def tool_usage(store: GraphStore) -> list[dict[str, Any]]:
+    """Each tool with who administers it, what depends on it and where it feeds."""
+    ontology = store.ontology
+    tool_type = ontology.node_role("tool")
+    uses_tool = ontology.edge_role("uses_tool")
+    administers = ontology.edge_role("administers")
+    exchanges = ontology.edge_role("exchanges_data")
+    implemented_by = ontology.edge_role("implemented_by_tool")
+    if not tool_type:
+        return []
+
+    out = []
+    for tool in store.nodes_of_type(tool_type):
+        activities = [store.node(e.source) for e in store.in_edges(tool.id, [uses_tool])] if uses_tool else []
+        admins = [store.node(e.source).label for e in store.in_edges(tool.id, [administers])] if administers else []
+        methods = [store.node(e.source).label for e in store.in_edges(tool.id, [implemented_by])] if implemented_by else []
+        downstream, upstream = [], []
+        if exchanges:
+            downstream = [
+                {
+                    "tool": store.node(e.target).label,
+                    "format": e.properties.get("exchange_format", ""),
+                    "automated": bool(e.properties.get("automated")),
+                }
+                for e in store.out_edges(tool.id, [exchanges])
+            ]
+            upstream = [store.node(e.source).label for e in store.in_edges(tool.id, [exchanges])]
+        out.append(
+            {
+                "id": tool.id,
+                "label": tool.label,
+                "tool_type": tool.properties.get("tool_type", ""),
+                "vendor": tool.properties.get("vendor", ""),
+                "version": tool.properties.get("version", ""),
+                "licence_model": tool.properties.get("licence_model", ""),
+                "licence_count": tool.properties.get("licence_count"),
+                "qualification_status": tool.properties.get("qualification_status", ""),
+                "weight": element_weight(ontology, tool),
+                "activity_count": len(activities),
+                "activities": [_ref(a, _BOARD_PROPERTIES) for a in activities],
+                "administrators": admins,
+                "methods": methods,
+                "feeds": downstream,
+                "fed_by": upstream,
+            }
+        )
+    out.sort(key=lambda item: -item["activity_count"])
     return out
 
 
@@ -435,4 +639,5 @@ KPI_CATALOGUE: dict[str, Callable[..., Any]] = {
     "milestone_load": milestone_load,
     "workload": workload,
     "work_package_health": work_package_health,
+    "tool_usage": tool_usage,
 }

@@ -11,12 +11,12 @@
 #   WHO   - Person, Organisation, WorkPackage
 #   WHEN  - Milestone  (programme gates, never calendar dates)
 #   WHY   - Objective, Requirement, Risk
-#   HOW   - SEProcess, BusinessProcess, Method
+#   HOW   - SEProcess, BusinessProcess, Method, Tool
 # ---------------------------------------------------------------------------
 
 ontology:
   id: aerospace-se-core
-  version: "1.0.0"
+  version: "1.1.0"
   title: Aerospace Systems Engineering Core
   description: >-
     Vocabulary for planning and tracing systems engineering work on an aerospace
@@ -47,6 +47,19 @@ property_sets:
       group: Identity
       description: Programme document or database reference, e.g. a DOORS module or a drawing number.
 
+  weighting:
+    weight:
+      type: enum
+      label: Weight
+      group: Weighting
+      description: >-
+        How much this element or relation matters to the programme. Applied to
+        every element and every relation via `default_properties` below.
+        Defaults to high, so nothing is quietly treated as unimportant: an
+        engineer must actively decide something is low weight.
+      values: [low, medium, high]
+      default: high
+
   lifecycle:
     status:
       type: enum
@@ -67,6 +80,12 @@ property_sets:
       group: Progress
       values: [low, medium, high, safety_critical]
       default: medium
+
+# Property sets applied to every type. Edge types have no inheritance of their
+# own, so this is how a cross-cutting attribute reaches all of them.
+default_properties:
+  node_types: [weighting]
+  edge_types: [weighting]
 
 node_types:
   # -- abstract root --------------------------------------------------------
@@ -409,7 +428,7 @@ node_types:
 
   Method:
     extends: Thing
-    label: Method or tool
+    label: Method
     category: How
     color: "#0284c7"
     shape: rectangle
@@ -422,13 +441,80 @@ node_types:
         description: e.g. FMECA, Monte Carlo simulation, MBSE (SysML), pugh matrix.
       tooling:
         type: string
-        label: Tooling
+        label: Tooling (free text)
         group: Execution
-        description: e.g. Cameo, MATLAB, DOORS, Python.
+        description: >-
+          Informal note only. Prefer linking the method to a Tool element with
+          "is implemented by", so the tool chain is traceable and its
+          qualification status is visible.
       guidance_reference:
         type: string
         label: Guidance reference
         group: Execution
+
+  Tool:
+    extends: Thing
+    label: Tool
+    category: How
+    color: "#0d9488"
+    shape: rectangle
+    description: >-
+      A software tool in the engineering chain. First class rather than a free
+      text field: tools are planned, owned, qualified and interfaced to each
+      other, and a chief engineer needs to see that chain the same way they see
+      the activity network. Unqualified tools producing certification evidence
+      are a finding waiting to happen.
+    include_properties: [lifecycle]
+    properties:
+      tool_type:
+        type: enum
+        label: Tool type
+        group: Classification
+        values:
+          [requirements_management, architecture_modelling, simulation, analysis,
+           configuration_management, verification, test_automation, plm_plm, data_exchange,
+           documentation, bespoke_script, other]
+        default: analysis
+      vendor:
+        type: string
+        label: Vendor / supplier
+        group: Classification
+      version:
+        type: string
+        label: Version / baseline
+        group: Classification
+        description: The version the programme is committed to, not simply the latest release.
+      licence_model:
+        type: enum
+        label: Licence model
+        group: Availability
+        values: [commercial_floating, commercial_node_locked, site_licence, open_source, internal, free]
+        default: commercial_floating
+      licence_count:
+        type: integer
+        label: Licences available
+        group: Availability
+        minimum: 0
+        description: Seats the programme actually has. A shared bottleneck is a schedule risk.
+      qualification_status:
+        type: enum
+        label: Tool qualification status
+        group: Qualification
+        values: [not_required, planned, in_qualification, qualified, waived]
+        default: not_required
+        description: >-
+          Where tool output is used as certification or verification evidence,
+          the authority will ask whether the tool itself is qualified
+          (e.g. DO-330, or the applicable ECSS tailoring).
+      qualification_reference:
+        type: string
+        label: Qualification reference
+        group: Qualification
+      output_formats:
+        type: list
+        label: Output formats
+        group: Interfaces
+        description: Comma separated, e.g. ReqIF, STEP AP242, XMI, CSV.
 
 edge_types:
   # -- WHO ------------------------------------------------------------------
@@ -598,7 +684,7 @@ edge_types:
   GOVERNED_BY:
     label: is governed by
     question: how
-    domain: [Activity, WorkPackage, Deliverable]
+    domain: [Activity, WorkPackage, Deliverable, Tool]
     range: [BusinessProcess]
     color: "#db2777"
 
@@ -613,10 +699,64 @@ edge_types:
     label: prescribes
     question: how
     domain: [SEProcess, BusinessProcess]
-    range: [Method, Deliverable]
+    range: [Method, Deliverable, Tool]
     color: "#818cf8"
     style: dashed
     description: The method or output a process mandates - the "expected" side of process compliance.
+
+  USES_TOOL:
+    label: uses tool
+    inverse_label: is used by
+    question: how
+    domain: [Activity]
+    range: [Tool]
+    color: "#0d9488"
+    description: The tool an activity is actually executed in.
+    properties:
+      usage:
+        type: enum
+        label: Usage
+        values: [primary, supporting, one_off]
+        default: primary
+
+  IMPLEMENTED_BY_TOOL:
+    label: is implemented by
+    inverse_label: implements
+    question: how
+    domain: [Method]
+    range: [Tool]
+    color: "#14b8a6"
+    description: The tool that realises a method, e.g. MBSE realised by a SysML modeller.
+
+  ADMINISTERS:
+    label: administers
+    inverse_label: is administered by
+    question: who
+    domain: [Person, Organisation]
+    range: [Tool]
+    color: "#0f766e"
+    description: >-
+      Who owns the tool - its licences, its upgrades, and the answer when it breaks.
+
+  EXCHANGES_DATA_WITH:
+    label: exchanges data with
+    question: how
+    domain: [Tool]
+    range: [Tool]
+    color: "#2dd4bf"
+    style: dashed
+    description: >-
+      A link in the tool chain. Every hop is a place data is transformed and
+      can be lost, so the chain is worth drawing explicitly.
+    properties:
+      exchange_format:
+        type: string
+        label: Exchange format
+        description: e.g. ReqIF, STEP AP242, XMI, CSV, manual re-entry.
+      automated:
+        type: boolean
+        label: Automated
+        description: Manual re-keying between tools is a defect source. Record it honestly.
 
   # -- WHAT -----------------------------------------------------------------
   PRODUCES:
@@ -662,6 +802,11 @@ trace_paths:
   process_to_deliverables: [~IMPLEMENTS_PROCESS, PRODUCES]
   requirement_to_verification: [~VERIFIES]
   work_package_to_milestones: [CONTAINS, DELIVERS_AT]
+  activity_to_tools: [USES_TOOL]
+  tool_to_activities: [~USES_TOOL]
+  tool_to_owners: [~USES_TOOL, ~RESPONSIBLE_FOR]
+  objective_to_tools: [~SUPPORTS, USES_TOOL]
+  method_to_tools: [IMPLEMENTED_BY_TOOL]
 
 # Semantic roles: how the generic KPI engine finds this ontology's concepts.
 # Rename a type above and update it here; no code changes are needed.
@@ -675,6 +820,7 @@ roles:
   se_process: SEProcess
   business_process: BusinessProcess
   method: Method
+  tool: Tool
   requirement: Requirement
   risk: Risk
   system_element: SystemElement
@@ -686,6 +832,10 @@ roles:
   implements_process: IMPLEMENTS_PROCESS
   governed_by: GOVERNED_BY
   uses_method: USES_METHOD
+  uses_tool: USES_TOOL
+  administers: ADMINISTERS
+  exchanges_data: EXCHANGES_DATA_WITH
+  implemented_by_tool: IMPLEMENTED_BY_TOOL
   produces: PRODUCES
   depends_on: DEPENDS_ON
   contains: CONTAINS
@@ -693,6 +843,7 @@ roles:
   verifies: VERIFIES
   mitigates: MITIGATES
 
+  weight_property: weight
   status_property: status
   sequence_property: sequence
   gate_property: gate

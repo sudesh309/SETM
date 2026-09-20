@@ -17,6 +17,8 @@ const GRID_CELL = 280;
 //: Iterations run before the first paint, so the graph appears settled rather
 //: than exploding outward while the user watches.
 const WARMUP_STEPS = 220;
+//: Relation line width multiplier per weight.
+const WEIGHT_WIDTH = { high: 1.5, medium: 1, low: 0.6 };
 
 export class GraphView {
   constructor(canvas, { onSelect, onHover, onBackground } = {}) {
@@ -241,7 +243,9 @@ export class GraphView {
       const active = !focusSet || (focusSet.has(edge.source) && focusSet.has(edge.target));
       ctx.globalAlpha = active ? 0.75 : 0.1;
       ctx.strokeStyle = edge.color || theme.border;
-      ctx.lineWidth = active && focusSet ? 1.9 : 1.2;
+      // Weight reads as line thickness: the heavy links stand out at a glance
+      // without needing the legend.
+      ctx.lineWidth = (active && focusSet ? 1.9 : 1.2) * (WEIGHT_WIDTH[edge.weight] ?? 1);
       ctx.setLineDash(edge.style === 'dashed' ? [5, 4] : []);
       this._drawArrow(a, b, this._radius(b));
     }

@@ -20,6 +20,7 @@ from .errors import SetmError
 from .kpi.metrics import compute_kpis
 from .model import GraphDocument
 from .ontology.loader import _as_source, load_ontology, resolve_ontology_path
+from .report import FORMATS as REPORT_FORMATS, build_report, render, safe_filename
 from .serialize.rdfmap import document_to_turtle, ontology_to_owl, turtle_to_document
 from .serialize.tabular import document_to_tables, tables_to_csv
 from .storage.registry import available_schemes, load_builtin_backends, open_storage
@@ -73,6 +74,7 @@ def build_parser() -> argparse.ArgumentParser:
             "  setm validate --storage json:./data/demo.json check the graph against the ontology\n"
             "  setm kpi --fail-under 70                      use as a CI quality gate\n"
             "  setm convert data/demo.json data/demo.ttl     JSON to Turtle/RDF\n"
+            "  setm report act.mtf --format html --out act.html   one-element review report\n"
         ),
     )
     parser.add_argument("--version", action="version", version=f"setm {__version__}")
@@ -107,6 +109,12 @@ def build_parser() -> argparse.ArgumentParser:
     kpi.add_argument("--json", action="store_true")
     kpi.add_argument("--section", default="report", help="report | milestone_load | workload | work_package_health")
     kpi.add_argument("--fail-under", type=float, default=None, help="exit non-zero if health score is below this")
+
+    report = add("report", "export a report for one element")
+    report.add_argument("element", help="element id, e.g. act.mtf")
+    report.add_argument("--format", default="md", choices=list(REPORT_FORMATS))
+    report.add_argument("--out", help="output file (default: stdout)")
+    report.add_argument("--depth", type=int, default=2, help="how far to follow impact (default 2)")
 
     export = add("export", "export the graph")
     export.add_argument("--format", default="json", choices=["json", "ttl", "owl", "csv"])
@@ -254,12 +262,13 @@ def cmd_kpi(args: argparse.Namespace) -> int:
     result = KPI_CATALOGUE[args.section](workspace.store)
 
     if args.json:
-        print(json.dumps(result, indent=2, default=str))
+        # Same shape the API returns, so a script can use either interchangeably.
+        payload = result if isinstance(result, dict) else {"section": args.section, "items": result}
+        print(json.dumps(payload, indent=2, default=str))
     elif args.section == "report":
         _print_kpi_report(result)
     else:
-        for item in result:
-            print(json.dumps(item, default=str))
+        _print_kpi_section(args.section, result)
 
     if args.fail_under is not None and args.section == "report":
         score = (result.get("health_score") or {}).get("value")
@@ -308,9 +317,44 @@ def _print_kpi_report(report: dict[str, Any]) -> None:
     print()
 
 
+def _print_kpi_section(section: str, items: list[dict[str, Any]]) -> None:
+    """Readable one-line-per-item output for the list-shaped KPI sections."""
+    if not items:
+        print(f"No data for '{section}'.")
+        return
+    print(f"\n{BOLD}{section.replace('_', ' ')}{RESET}  ({len(items)} items)\n")
+    for item in items:
+        label = str(item.get("label") or item.get("id") or "")
+        facts = [
+            f"{key.replace('_', ' ')} {value}"
+            for key, value in item.items()
+            if key not in ("id", "label") and isinstance(value, (str, int, float)) and value not in ("", None)
+        ]
+        print(f"  {label}")
+        if facts:
+            print(f"    {DIM}{' · '.join(facts)}{RESET}")
+    print()
+
+
 def _bar(percent: float, width: int = 20) -> str:
     filled = int(round(width * max(0.0, min(100.0, percent)) / 100))
     return "[" + "#" * filled + "." * (width - filled) + "]"
+
+
+def cmd_report(args: argparse.Namespace) -> int:
+    workspace = Workspace.open(_settings_from_args(args))
+    report = build_report(workspace.store, args.element, depth=args.depth)
+    rendered = render(report, args.format)
+    text = json.dumps(rendered, indent=2, default=str) if args.format == "json" else str(rendered)
+
+    out = args.out
+    if out:
+        Path(out).parent.mkdir(parents=True, exist_ok=True)
+        Path(out).write_text(text, encoding="utf-8")
+        print(f"Wrote {out}")
+    else:
+        print(text)
+    return 0
 
 
 def cmd_export(args: argparse.Namespace) -> int:
@@ -430,6 +474,7 @@ COMMANDS = {
     "info": cmd_info,
     "validate": cmd_validate,
     "kpi": cmd_kpi,
+    "report": cmd_report,
     "export": cmd_export,
     "import": cmd_import,
     "convert": cmd_convert,

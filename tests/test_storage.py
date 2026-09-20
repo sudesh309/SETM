@@ -197,3 +197,76 @@ def test_tabular_ignores_user_added_worksheets(demo_document, ontology):
 def test_json_document_survives_a_full_serialise_cycle(demo_document):
     restored = GraphDocument.from_dict(json.loads(json.dumps(demo_document.to_dict())))
     assert normalise(restored) == normalise(demo_document)
+
+
+# -- GitLab, the default backend -------------------------------------------
+
+def test_gitlab_is_the_default_storage():
+    from setm.config import Settings
+
+    scheme, _, options = parse_uri(Settings().storage)
+    assert scheme == "gitlab"
+    assert options["path"].endswith(".json")
+
+
+@pytest.mark.parametrize(
+    "url,expected",
+    [
+        ("git@gitlab.com:my-group/my-project.git", ("https://gitlab.com", "my-group/my-project")),
+        ("https://gitlab.example.com/a/b/c.git", ("https://gitlab.example.com", "a/b/c")),
+        ("https://user@gitlab.com/g/p", ("https://gitlab.com", "g/p")),
+        ("ssh://weird", None),
+        ("https://gitlab.com/no-group", None),
+        ("", None),
+    ],
+)
+def test_git_remote_parsing(url, expected):
+    from setm.storage.gitlab import parse_git_remote
+
+    assert parse_git_remote(url) == expected
+
+
+def test_gitlab_resolves_the_project_from_the_environment(monkeypatch):
+    monkeypatch.setenv("SETM_GITLAB_PROJECT", "env-group/env-project")
+    backend = open_storage("gitlab:?path=se/graph.json")
+    assert backend.project == "env-group/env-project"
+    assert backend.describe()["target"] == "env-group/env-project"
+
+
+def test_gitlab_falls_back_to_the_surrounding_checkout(monkeypatch, tmp_path):
+    monkeypatch.delenv("SETM_GITLAB_PROJECT", raising=False)
+    repo = tmp_path / "repo" / "nested"
+    (repo / ".." / ".git").resolve().mkdir(parents=True)
+    (tmp_path / "repo" / ".git" / "config").write_text(
+        '[remote "origin"]\n\turl = git@gitlab.internal:programme/payload.git\n'
+    )
+    repo.mkdir(parents=True, exist_ok=True)
+    monkeypatch.chdir(repo)
+
+    backend = open_storage("gitlab:")
+    assert backend.project == "programme/payload"
+    assert backend.host == "https://gitlab.internal"
+
+
+def test_gitlab_without_a_project_explains_how_to_set_one(monkeypatch, tmp_path):
+    monkeypatch.delenv("SETM_GITLAB_PROJECT", raising=False)
+    monkeypatch.chdir(tmp_path)  # no repository here
+    with pytest.raises(ConfigError) as exc:
+        open_storage("gitlab:")
+    assert "SETM_GITLAB_PROJECT" in exc.value.message
+    assert "json:./data/project.json" in exc.value.message  # the local escape hatch
+
+
+def test_gitlab_requires_a_token_before_touching_the_network(monkeypatch):
+    monkeypatch.delenv("SETM_GITLAB_TOKEN", raising=False)
+    monkeypatch.delenv("GITLAB_TOKEN", raising=False)
+    backend = open_storage("gitlab:group/project")
+    with pytest.raises(ConfigError, match="No GitLab token"):
+        backend.load()
+
+
+def test_gitlab_describes_itself_as_versioned():
+    info = open_storage("gitlab:group/project?branch=dev&path=x/y.ttl").describe()
+    assert info["versioned"] is True
+    assert info["branch"] == "dev"
+    assert info["format"] == "ttl"  # inferred from the path

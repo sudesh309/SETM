@@ -3,7 +3,7 @@
 import { api } from './api.js';
 import { GraphView } from './graph.js';
 import { buildPropertyForm, formatValue, h, readPropertyForm } from './forms.js';
-import { renderKpis, renderMilestones, renderOntology, renderSystem, renderWorkload } from './views.js';
+import { renderKpis, renderMilestones, renderOntology, renderSystem, renderTools, renderWorkload } from './views.js';
 
 const state = {
   ontology: null,
@@ -12,6 +12,7 @@ const state = {
   selectedId: null,
   hiddenNodeTypes: new Set(),
   hiddenEdgeTypes: new Set(),
+  hiddenWeights: new Set(),
   search: '',
   view: 'graph',
   dirty: false,
@@ -97,6 +98,35 @@ function buildFilters() {
   for (const spec of Object.values(state.ontology.edge_types)) {
     edgeContainer.append(filterRow(spec.name, spec.label, spec.color, edgeCounts.get(spec.name) || 0, state.hiddenEdgeTypes));
   }
+
+  const weightCounts = new Map();
+  for (const node of state.graph.nodes) {
+    const weight = weightOf(node);
+    weightCounts.set(weight, (weightCounts.get(weight) || 0) + 1);
+  }
+  const weightContainer = el('weight-filters');
+  weightContainer.replaceChildren();
+  for (const weight of WEIGHTS) {
+    const chip = h('button', {
+      class: `chip weight-${weight}${state.hiddenWeights.has(weight) ? '' : ' on'}`,
+      text: `${weight} ${weightCounts.get(weight) || 0}`,
+      onClick: () => {
+        if (state.hiddenWeights.has(weight)) state.hiddenWeights.delete(weight);
+        else state.hiddenWeights.add(weight);
+        chip.classList.toggle('on');
+        applyFilters();
+      },
+    });
+    weightContainer.append(chip);
+  }
+}
+
+const WEIGHTS = ['high', 'medium', 'low'];
+
+/** An element with no weight recorded counts as high: that is the ontology default. */
+function weightOf(element) {
+  const value = element.properties?.weight;
+  return WEIGHTS.includes(value) ? value : 'high';
 }
 
 function filterRow(name, label, colour, count, hiddenSet) {
@@ -131,13 +161,16 @@ function applyFilters() {
   const needle = state.search.trim().toLowerCase();
   const visibleNodes = state.graph.nodes.filter((node) => {
     if (state.hiddenNodeTypes.has(node.type)) return false;
+    if (state.hiddenWeights.has(weightOf(node))) return false;
     if (!needle) return true;
     const haystack = `${node.id} ${node.label} ${Object.values(node.properties || {}).join(' ')}`.toLowerCase();
     return haystack.includes(needle);
   });
   const visibleIds = new Set(visibleNodes.map((n) => n.id));
   const visibleEdges = state.graph.edges.filter(
-    (edge) => !state.hiddenEdgeTypes.has(edge.type) && visibleIds.has(edge.source) && visibleIds.has(edge.target),
+    (edge) => !state.hiddenEdgeTypes.has(edge.type)
+      && !state.hiddenWeights.has(weightOf(edge))
+      && visibleIds.has(edge.source) && visibleIds.has(edge.target),
   );
 
   const decorated = visibleNodes.map((node) => {
@@ -146,7 +179,7 @@ function applyFilters() {
   });
   const decoratedEdges = visibleEdges.map((edge) => {
     const spec = state.ontology.edge_types[edge.type] || {};
-    return { ...edge, color: spec.color, style: spec.style };
+    return { ...edge, color: spec.color, style: spec.style, weight: weightOf(edge) };
   });
 
   graphView.setData(decorated, decoratedEdges);
@@ -193,11 +226,15 @@ function renderInspector(trace) {
       h('i', { class: 'swatch', style: `background:${spec.color}` }),
       spec.label,
     ]),
-    h('h3', { text: node.label }),
+    h('h3', {}, [
+      node.label,
+      h('span', { class: `badge ${weightOf(node)}`, text: weightOf(node) }),
+    ]),
     h('div', { class: 'mono muted', text: node.id }),
     h('div', { class: 'insp-actions' }, [
       h('button', { class: 'btn', text: 'Edit', onClick: () => openNodeDialog(node.id) }),
       h('button', { class: 'btn', text: 'Link…', onClick: () => openEdgeDialog(node.id) }),
+      h('button', { class: 'btn', text: 'Report…', onClick: () => openReportDialog(node.id) }),
       h('button', { class: 'btn', text: 'Focus', onClick: () => { graphView.centreOn(node.id); } }),
       h('button', { class: 'btn btn-danger', text: 'Delete', onClick: () => deleteNode(node.id) }),
     ]),
@@ -440,6 +477,61 @@ function elementSelect(id, nodes, selected) {
   return select;
 }
 
+/** Choose a format and either preview the report or download it. */
+function openReportDialog(nodeId) {
+  const node = state.nodesById.get(nodeId);
+  const formats = [
+    ['html', 'Web page', 'Self-contained and styled for printing — the one to put in a review pack.'],
+    ['md', 'Markdown', 'Plain text to paste into a minute, a wiki or a merge request.'],
+    ['json', 'JSON', 'The same content as data, for a downstream script.'],
+  ];
+
+  const body = h('div');
+  body.append(h('p', { class: 'muted', style: 'margin-top:0;font-size:12.5px;line-height:1.6' }, [
+    `Everything the inspector shows for "${node?.label || nodeId}": properties, traceability grouped by `
+    + 'question, the gaps the ontology expects to be filled, impact and provenance.',
+  ]));
+
+  for (const [value, label, help] of formats) {
+    body.append(h('div', { class: 'form-field' }, [
+      h('label', { class: 'inline' }, [
+        h('input', { type: 'radio', name: 'report-format', value, checked: value === 'html' }),
+        h('span', {}, [h('strong', { text: label })]),
+      ]),
+      h('div', { class: 'help', style: 'margin-left:24px', text: help }),
+    ]));
+  }
+
+  body.append(h('div', { class: 'form-field' }, [
+    h('label', { for: 'report-depth', text: 'Impact depth' }),
+    h('input', { type: 'number', id: 'report-depth', name: 'report-depth', value: '2', min: '1', max: '6' }),
+    h('div', { class: 'help', text: 'How many hops of upstream and downstream elements to list.' }),
+  ]));
+
+  const chosen = () => body.querySelector('input[name="report-format"]:checked').value;
+  const depth = () => body.querySelector('#report-depth').value || '2';
+  const url = (download) =>
+    `/api/nodes/${encodeURIComponent(nodeId)}/report?format=${chosen()}&depth=${depth()}`
+    + (download ? '&download=1' : '');
+
+  // Secondary action lives in the body: openModal owns the footer, and anything
+  // appended there would survive into the next dialog.
+  body.append(h('div', { style: 'margin-top:4px' }, [
+    h('button', {
+      class: 'btn',
+      type: 'button',
+      text: 'Open preview in a new tab',
+      onClick: () => window.open(url(false), '_blank', 'noopener'),
+    }),
+  ]));
+
+  openModal(`Report — ${node?.label || nodeId}`, body, async () => {
+    // A navigation rather than a fetch, so the browser names and saves the file.
+    window.location.href = url(true);
+    toast('Report downloaded', 'success');
+  }, { confirmLabel: 'Download' });
+}
+
 async function deleteNode(id) {
   const node = state.nodesById.get(id);
   const body = h('div', {}, [
@@ -507,7 +599,7 @@ function wireChrome() {
   for (const button of document.querySelectorAll('[data-toggle-all]')) {
     button.addEventListener('click', () => {
       const kind = button.dataset.toggleAll;
-      const set = kind === 'node' ? state.hiddenNodeTypes : state.hiddenEdgeTypes;
+      const set = { node: state.hiddenNodeTypes, edge: state.hiddenEdgeTypes, weight: state.hiddenWeights }[kind];
       set.clear();
       buildFilters();
       applyFilters();
@@ -521,6 +613,7 @@ function wireChrome() {
     if (event.key === 'n') openNodeDialog();
     if (event.key === 'l') openEdgeDialog(state.selectedId);
     if (event.key === 'f') graphView.fit();
+    if (event.key === 'r' && state.selectedId) openReportDialog(state.selectedId);
     if ((event.key === 's') && (event.metaKey || event.ctrlKey)) { event.preventDefault(); save(); }
   });
 }
@@ -538,6 +631,9 @@ async function switchView(view) {
     } else if (view === 'people') {
       const data = await api.kpi('workload');
       renderWorkload(el('people-body'), data.items || [], openFromPage);
+    } else if (view === 'tools') {
+      const data = await api.kpi('tool_usage');
+      renderTools(el('tools-body'), data.items || [], openFromPage);
     } else if (view === 'kpi') {
       renderKpis(el('kpi-body'), await api.kpi('report'), openFromPage);
     } else if (view === 'ontology') {

@@ -12,12 +12,17 @@ actually asks at a review:
 | **Who** is doing it | `Person —is responsible for→ Activity`, plus accountable and consulted |
 | **When** will it land | `Activity —delivers at→ Milestone` — **programme gates, never dates** |
 | **Why** does it exist | `Activity —supports→ Objective`, `mitigates→ Risk`, `verifies→ Requirement` |
-| **How** is it done | `Activity —implements process→ SE process`, `governed by→ Business process`, `uses method→ Method` |
+| **How** is it done | `Activity —implements process→ SE process`, `governed by→ Business process`, `uses method→ Method`, `uses tool→ Tool` |
 | **What** does it produce | `Activity —produces→ Deliverable`, `applies to→ System element` |
+
+Every element and every relation also carries a **weight** — low, medium or
+high, defaulting to high — so the graph can say what actually matters, not just
+what exists.
 
 Because those links are a graph and not a spreadsheet column, the tool can tell
 you what a schedule slip actually breaks, which objectives nobody is working
-towards, and which engineer is carrying four commitments into the same gate.
+towards, which engineer is carrying four commitments into the same gate, and
+which unqualified tool is producing certification evidence.
 
 ## Why milestones instead of dates
 
@@ -48,7 +53,27 @@ setm --help
 ```
 
 The demo is a Phase B satellite payload programme: 4 objectives, 5 gates,
-4 work packages, 14 activities, requirements, risks and processes, all linked.
+4 work packages, 13 activities, a 7-tool engineering chain, requirements, risks
+and processes, all linked.
+
+### For a real programme: GitLab
+
+**GitLab is the default backend.** A programme's graph belongs under the same
+configuration management, access control and audit trail as the rest of its
+engineering data, and every save becoming a reviewable commit is the point.
+
+```bash
+export SETM_GITLAB_TOKEN=glpat-...             # scope: api
+setm init  gitlab:my-group/my-project --name "HALO-2"
+setm serve gitlab:my-group/my-project
+```
+
+The project may be left out entirely — SETM resolves it from
+`SETM_GITLAB_PROJECT`, or from the `origin` remote of the checkout you are
+standing in, so inside a repository `setm serve` usually just works. Concurrent
+edits are safe: a save carries the commit the graph was read at, so GitLab
+rejects a write that would clobber a colleague's, and SETM tells you to reload
+rather than silently winning.
 
 ## What you get
 
@@ -61,12 +86,21 @@ ontology says it is missing.
 
 **Workload** — who owns what, split by the gate they owe it to.
 
+**Tools** — the engineering tool chain: who administers each tool, what depends
+on it, whether its qualification is settled, and every hop where data is re-keyed
+by hand between one tool and the next.
+
 **KPIs** — measured from the graph, so they cannot drift from the plan
 (details below).
 
 **Ontology** — browse the vocabulary, reload it after an edit, export it as OWL.
 
 **System** — storage health, validation, and live application performance.
+
+**Reports** — any element exports as a self-contained web page (for a review
+pack), Markdown (for a minute or a merge request) or JSON. It carries the
+properties, the traceability grouped by question, the gaps the ontology expects
+filled, the impact and the provenance.
 
 ## Command line
 
@@ -80,6 +114,8 @@ setm info                               # storage, ontology and graph status
 setm validate                           # conformance check; non-zero exit on failure
 setm kpi --fail-under 70                # CI quality gate
 setm kpi --section workload --json
+setm kpi --section tool_usage           # the tool chain, licences, qualification
+setm report act.mtf --format html --out review.html   # one-element report
 setm export --format ttl --out project.ttl
 setm export --format csv --out ./csv    # one file per element type
 setm import ./from-another-tool.json --merge
@@ -96,21 +132,23 @@ lives. Pick one with a URI:
 
 | URI | Notes |
 |---|---|
-| `json:./data/project.json` | default; atomic writes with rolling backups |
+| `gitlab:group/project?path=se/graph.json&branch=main` | **the default.** Every save is a commit: review, blame, rollback, and a compare-and-swap that refuses to clobber a colleague |
+| `json:./data/project.json` | local file; atomic writes with rolling backups |
 | `sqlite:./data/project.db` | single file, plus an append-only change log |
 | `rdf:./data/project.ttl` | Turtle/OWL; add `?sparql=<endpoint>` to push to a triple store |
 | `gsheet:<spreadsheet-id>` | one worksheet per element type — engineers edit it in the browser |
 | `gdrive:<file-id>` or `gdrive:folder/<id>/graph.json` | Drive keeps its own version history |
-| `gitlab:group/project?path=se/graph.json&branch=main` | **every save is a commit**: review, blame, rollback |
 | `https://host/api/graph` | any service that can `GET` and `PUT` the JSON document |
 | `memory:` | throwaway, for tests |
 
 A bare path works too — `setm serve ./project.ttl` infers the backend from the
 extension.
 
-GitLab is usually the right answer for a real programme: configuration
-management, access control and audit already exist there and are already
-approved, and a graph that is a file in a repository inherits all of it.
+A bare `gitlab:` resolves its project from `SETM_GITLAB_PROJECT` or the
+surrounding checkout's `origin` remote. Any other backend is one flag away:
+`--storage json:./data/project.json` for a local experiment,
+`--storage gsheet:<id>` when a work package leader wants to bulk-edit in a
+browser. `setm convert` moves a graph between any two of them.
 
 Credentials are never stored in the graph:
 
@@ -178,6 +216,51 @@ SHACL validator or a triple store:
 setm ontology export --out aerospace-se-core.ttl
 ```
 
+## Weight
+
+Every element and every relation carries `weight`: `low`, `medium` or `high`,
+**defaulting to high**. The default is deliberate — nothing should quietly
+become unimportant; an engineer has to decide something is low weight.
+
+Weight is not decoration. It:
+
+- **thickens the relation** in the graph, so the load-bearing links stand out;
+- **filters** the view — hide low and medium to see only what the programme
+  said matters;
+- **orders every gap list**, so a red KPI leads with the heaviest offenders;
+- drives its own KPI, **high-weight activities fully traced**, which is the one
+  most worth putting on a gate slide: it is a gap the programme itself called
+  important.
+
+It reaches all 27 relation types through `default_properties` in the ontology,
+since relations have no inheritance of their own:
+
+```yaml
+default_properties:
+  node_types: [weighting]
+  edge_types: [weighting]
+```
+
+A type that wants different levels simply declares `weight` itself and wins.
+
+## Tools
+
+Tools are elements, not a free-text field. A `Tool` records its vendor,
+version, licence model and seat count, and — the part an authority asks about —
+its **qualification status**. It links into the graph like anything else:
+
+```
+Activity     —uses tool→            Tool
+Method       —is implemented by→    Tool
+Person       —administers→          Tool
+Tool         —exchanges data with→  Tool   (format, and whether it is automated)
+```
+
+That last relation is the tool chain, and drawing it explicitly is the point:
+every hop is a place data is transformed, and every *manual* hop is a place the
+model and the analysis drift apart. SETM counts them
+(`manual_tool_handovers`) and the Tools page lists them first.
+
 ## KPIs
 
 Two separate things, both live.
@@ -189,9 +272,11 @@ red number to get the list:
 
 `objective_coverage`, `activity_ownership`, `milestone_anchoring`,
 `process_linkage`, `process_utilisation`, `verification_coverage`,
-`traceability_completeness`, `orphan_rate`, `dependency_cycles`, plus per-gate
-readiness, per-person workload and per-work-package health. The overall health
-score is the mean attainment of every measurable KPI against its target.
+`tool_linkage`, `tool_qualification`, `manual_tool_handovers`,
+`high_weight_traceability`, `traceability_completeness`, `orphan_rate`,
+`dependency_cycles` — plus per-gate readiness, per-person workload,
+per-work-package health, the tool chain and the weight distribution. The overall
+health score is the mean attainment of every measurable KPI against its target.
 
 **Application performance** (`/api/kpi/app`, the System page) is measured inside
 the server: request and storage latency with p50/p95/p99, error rates, graph
@@ -213,6 +298,7 @@ GET    /api/edges/allowed?source_type=Activity     # what the ontology permits
 GET    /api/nodes/{id}/trace           # who/when/why/how/what + gaps
 GET    /api/nodes/{id}/context?depth=2
 GET    /api/nodes/{id}/impact?direction=out
+GET    /api/nodes/{id}/report?format=html|md|json[&download=1]
 GET    /api/paths?source=…&target=…
 GET    /api/kpi  |  /api/kpi/app  |  /api/validate  |  /metrics
 GET    /api/export?format=json|ttl|owl|csv         POST /api/import
@@ -233,6 +319,7 @@ is a small isolated change:
 setm/web/          vanilla JS: canvas graph, ontology-driven forms, dashboards
 setm/api/          route table (routes.py) + stdlib server (server.py) + ASGI (asgi.py)
 setm/workspace.py  ties ontology + storage + graph together; autosave
+setm/report.py     single-element reports as HTML, Markdown or JSON
 setm/kpi/          project KPIs (metrics.py) and app telemetry (telemetry.py)
 setm/graph/        indexed store (store.py), traversal (query.py), accel hook (_fastpath.py)
 setm/storage/      pluggable backends behind one ABC + a URI registry
@@ -265,18 +352,21 @@ and 26,666 relations** (single CPython process, no Rust extension):
 | Operation | Time |
 |---|---|
 | Trace one activity (who/when/why/how/what + gaps) | 0.08 ms |
-| Neighbourhood, depth 2 | 4.2 ms |
-| Cycle detection over the dependency network | 13 ms |
-| Full graph read (what the UI loads) | 41 ms |
+| Neighbourhood, depth 2 | 4.4 ms |
+| Cycle detection over the dependency network | 14 ms |
+| Full graph read (what the UI loads) | 46 ms |
 | Whole-graph conformance validation | 0.4 s |
-| Full KPI report | 0.6 s |
-| Bulk import, every edge validated | 28 µs/edge |
+| Full KPI report (13 KPIs + 6 breakdowns) | 0.5 s |
+| Bulk import, every edge validated | 26 µs/edge |
 
 Repulsion in the browser layout uses spatial binning rather than all-pairs, and
 labels are placed greedily with collision rejection, so a dense graph stays
-legible. Cardinality is enforced against the two endpoints' own indices rather
-than by rescanning the edge type — the difference between 0.7 s and 15 s on that
-import, and there is a regression test pinning it.
+legible. Two costs are pinned by tests rather than left to drift. Cardinality is
+enforced against the two endpoints' own indices rather than by rescanning the
+edge type — the difference between 0.7 s and 15 s on that import. And
+traceability completeness, which four KPIs need, is computed once per activity
+and shared, which is why adding the tool and weight KPIs made the report
+*faster* rather than twice as slow.
 
 For a much larger programme:
 
@@ -293,7 +383,7 @@ For a much larger programme:
 
 ```bash
 pip install -e '.[dev]'
-pytest                      # 142 tests
+pytest                      # 203 tests
 ```
 
 Covering ontology inheritance and validation, graph mutation and traversal,
@@ -317,6 +407,10 @@ command-line flags. Copy `setm.toml.example` to `setm.toml` to start.
 
 ## Status
 
-Working MVP. Sensible next steps: multi-user write concurrency (currently
-single-writer with optimistic locking per element), a diff/merge view between
-two revisions of the graph, and importers for DOORS/Jama and SysML v2.
+Working MVP, with GitLab as the default home for a programme's graph.
+
+Sensible next steps: multi-user write concurrency beyond the compare-and-swap
+GitLab gives (the in-memory graph is still single-writer), a diff view between
+two commits of the graph, and importers for DOORS/Jama and SysML v2 — the
+`Tool` type now gives those importers somewhere to record which tool the data
+came from.

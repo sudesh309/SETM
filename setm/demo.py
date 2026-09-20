@@ -3,8 +3,9 @@
 ``setm demo`` builds this graph so a new user sees the tool doing something real
 within seconds rather than staring at an empty canvas. It is a small but
 internally consistent slice of a satellite payload programme: objectives,
-milestones from SRR to QR, four work packages, and activities that each state
-who, when, why, and under which process and method.
+milestones from SRR to QR, four work packages, a seven-tool engineering chain,
+and activities that each state who, when, why, and under which process, method
+and tool.
 """
 
 from __future__ import annotations
@@ -93,6 +94,114 @@ BUSINESS_PROCESSES: list[tuple[str, str, str, str]] = [
     ("bp.supplier", "Supplier technical oversight", "Procurement", "QMS-SUP-021"),
 ]
 
+TOOLS: list[dict[str, Any]] = [
+    {
+        "id": "tool.cameo",
+        "name": "Cameo Systems Modeler",
+        "tool_type": "architecture_modelling",
+        "vendor": "Dassault Systemes",
+        "version": "2022x R2",
+        "licence_model": "commercial_floating",
+        "licence_count": 12,
+        "qualification_status": "not_required",
+        "output_formats": ["XMI", "ReqIF", "PDF"],
+        "admin": "per.novak",
+    },
+    {
+        "id": "tool.doors",
+        "name": "DOORS Next",
+        "tool_type": "requirements_management",
+        "vendor": "IBM",
+        "version": "7.0.2",
+        "licence_model": "site_licence",
+        "licence_count": 40,
+        "qualification_status": "not_required",
+        "output_formats": ["ReqIF", "CSV"],
+        "admin": "per.mehta",
+    },
+    {
+        "id": "tool.zemax",
+        "name": "Zemax OpticStudio",
+        "tool_type": "simulation",
+        "vendor": "Ansys",
+        "version": "2023 R1",
+        "licence_model": "commercial_node_locked",
+        "licence_count": 2,
+        "qualification_status": "in_qualification",
+        "qualification_reference": "TQ-PL-001",
+        "output_formats": ["CSV", "PDF"],
+        "admin": "per.laurent",
+        "weight": "high",
+    },
+    {
+        "id": "tool.esatan",
+        "name": "ESATAN-TMS",
+        "tool_type": "simulation",
+        "vendor": "ITP Aero",
+        "version": "2021 sp1",
+        "licence_model": "commercial_node_locked",
+        "licence_count": 1,
+        "qualification_status": "planned",
+        "output_formats": ["CSV"],
+        "admin": "per.svensson",
+    },
+    {
+        "id": "tool.matlab",
+        "name": "MATLAB / Simulink",
+        "tool_type": "analysis",
+        "vendor": "MathWorks",
+        "version": "R2023b",
+        "licence_model": "commercial_floating",
+        "licence_count": 25,
+        "qualification_status": "not_required",
+        "output_formats": ["CSV", "MAT"],
+        "admin": "per.novak",
+    },
+    {
+        "id": "tool.budgettool",
+        "name": "Budget roll-up scripts",
+        "tool_type": "bespoke_script",
+        "vendor": "In-house",
+        "version": "v3.1",
+        "licence_model": "internal",
+        "qualification_status": "waived",
+        "output_formats": ["CSV", "XLSX"],
+        "admin": "per.mehta",
+        "weight": "medium",
+    },
+    {
+        "id": "tool.gitlab",
+        "name": "GitLab",
+        "tool_type": "configuration_management",
+        "vendor": "GitLab Inc.",
+        "version": "16.x",
+        "licence_model": "site_licence",
+        "qualification_status": "not_required",
+        "output_formats": ["JSON", "Turtle"],
+        "admin": "per.novak",
+        "weight": "medium",
+    },
+]
+
+#: Tool chain: which tool hands data to which, and whether the hop is automated.
+TOOL_CHAIN: list[tuple[str, str, str, bool]] = [
+    ("tool.doors", "tool.cameo", "ReqIF", True),
+    ("tool.cameo", "tool.matlab", "XMI", False),
+    ("tool.zemax", "tool.matlab", "CSV", True),
+    ("tool.esatan", "tool.matlab", "CSV", False),
+    ("tool.matlab", "tool.budgettool", "CSV", True),
+    ("tool.budgettool", "tool.gitlab", "CSV", True),
+]
+
+#: Which tool realises which method.
+METHOD_TOOLS: list[tuple[str, str]] = [
+    ("mth.mbse", "tool.cameo"),
+    ("mth.budget", "tool.budgettool"),
+    ("mth.optical", "tool.zemax"),
+    ("mth.thermal", "tool.esatan"),
+    ("mth.trade", "tool.matlab"),
+]
+
 METHODS: list[tuple[str, str, str, str]] = [
     ("mth.mbse", "MBSE architecture modelling", "SysML v2 system model", "Cameo Systems Modeler"),
     ("mth.budget", "Engineering budget accounting", "Mass/power/pointing budget roll-up", "Python, spreadsheet"),
@@ -137,6 +246,8 @@ RISKS: list[tuple[str, str, int, int]] = [
 ACTIVITIES: list[dict[str, Any]] = [
     {
         "id": "act.stakeholder",
+        "tools": ['tool.doors'],
+        "weight": "high",
         "name": "Consolidate stakeholder needs into payload requirements",
         "type": "requirements_definition",
         "wp": "wp.sys",
@@ -153,6 +264,8 @@ ACTIVITIES: list[dict[str, Any]] = [
     },
     {
         "id": "act.sysreq",
+        "tools": ['tool.doors', 'tool.cameo'],
+        "weight": "high",
         "name": "Derive and baseline payload system requirements",
         "type": "requirements_definition",
         "wp": "wp.sys",
@@ -169,6 +282,8 @@ ACTIVITIES: list[dict[str, Any]] = [
     },
     {
         "id": "act.arch",
+        "tools": ['tool.cameo'],
+        "weight": "high",
         "name": "Define payload architecture and interfaces",
         "type": "architecture_definition",
         "wp": "wp.sys",
@@ -185,6 +300,8 @@ ACTIVITIES: list[dict[str, Any]] = [
     },
     {
         "id": "act.budgets",
+        "tools": ['tool.budgettool', 'tool.matlab'],
+        "weight": "high",
         "name": "Maintain mass, power and pointing budgets",
         "type": "analysis",
         "wp": "wp.sys",
@@ -201,6 +318,8 @@ ACTIVITIES: list[dict[str, Any]] = [
     },
     {
         "id": "act.opttrade",
+        "tools": ['tool.zemax', 'tool.matlab'],
+        "weight": "high",
         "name": "Trade study: telescope configuration",
         "type": "trade_study",
         "wp": "wp.opt",
@@ -217,6 +336,8 @@ ACTIVITIES: list[dict[str, Any]] = [
     },
     {
         "id": "act.mtf",
+        "tools": ['tool.zemax', 'tool.matlab'],
+        "weight": "high",
         "name": "End-to-end MTF and radiometric performance analysis",
         "type": "analysis",
         "wp": "wp.opt",
@@ -233,6 +354,8 @@ ACTIVITIES: list[dict[str, Any]] = [
     },
     {
         "id": "act.thermal",
+        "tools": ['tool.esatan'],
+        "weight": "high",
         "name": "Focal plane thermal control analysis",
         "type": "analysis",
         "wp": "wp.tms",
@@ -249,6 +372,8 @@ ACTIVITIES: list[dict[str, Any]] = [
     },
     {
         "id": "act.structure",
+        "tools": ['tool.matlab'],
+        "weight": "medium",
         "name": "Preliminary structural sizing and modal analysis",
         "type": "analysis",
         "wp": "wp.tms",
@@ -265,6 +390,8 @@ ACTIVITIES: list[dict[str, Any]] = [
     },
     {
         "id": "act.icd",
+        "tools": ['tool.cameo'],
+        "weight": "high",
         "name": "Agree payload-to-bus interface control document",
         "type": "interface_definition",
         "wp": "wp.sys",
@@ -281,6 +408,8 @@ ACTIVITIES: list[dict[str, Any]] = [
     },
     {
         "id": "act.fmeca",
+        "tools": ['tool.matlab'],
+        "weight": "medium",
         "name": "Payload FMECA and critical items list",
         "type": "analysis",
         "wp": "wp.sys",
@@ -297,6 +426,8 @@ ACTIVITIES: list[dict[str, Any]] = [
     },
     {
         "id": "act.vplan",
+        "tools": ['tool.doors'],
+        "weight": "high",
         "name": "Build the payload verification plan and matrix",
         "type": "verification",
         "wp": "wp.aiv",
@@ -313,6 +444,8 @@ ACTIVITIES: list[dict[str, Any]] = [
     },
     {
         "id": "act.pdrpack",
+        "tools": ['tool.gitlab'],
+        "weight": "high",
         "name": "Assemble and run the PDR data package",
         "type": "review",
         "wp": "wp.sys",
@@ -329,6 +462,8 @@ ACTIVITIES: list[dict[str, Any]] = [
     },
     {
         "id": "act.qualcampaign",
+        "tools": [],
+        "weight": "low",
         "name": "Plan the environmental qualification campaign",
         "type": "qualification",
         "wp": "wp.aiv",
@@ -394,7 +529,16 @@ def build_demo(ontology: Ontology) -> GraphDocument:
         previous_milestone = node_id
 
     for node_id, name, objective_type, priority, criterion in OBJECTIVES:
-        node(node_id, "Objective", name=name, objective_type=objective_type, priority=priority, success_criterion=criterion)
+        node(
+            node_id,
+            "Objective",
+            name=name,
+            objective_type=objective_type,
+            priority=priority,
+            success_criterion=criterion,
+            # Weight follows priority: a "should" objective is not a "must".
+            weight="high" if priority == "must" else "medium",
+        )
 
     for node_id, name, standard, clause, group in PROCESSES:
         node(node_id, "SEProcess", name=name, standard=standard, clause=clause, process_group=group)
@@ -404,6 +548,17 @@ def build_demo(ontology: Ontology) -> GraphDocument:
 
     for node_id, name, technique, tooling in METHODS:
         node(node_id, "Method", name=name, technique=technique, tooling=tooling)
+
+    for tool in TOOLS:
+        properties = {k: v for k, v in tool.items() if k not in ("id", "admin")}
+        node(tool["id"], "Tool", status="in_progress", **properties)
+        link("ADMINISTERS", tool["admin"], tool["id"])
+    for method_id, tool_id in METHOD_TOOLS:
+        link("IMPLEMENTED_BY_TOOL", method_id, tool_id)
+    for source, target, fmt, automated in TOOL_CHAIN:
+        link("EXCHANGES_DATA_WITH", source, target, exchange_format=fmt, automated=automated)
+    link("GOVERNED_BY", "tool.gitlab", "bp.config")
+    link("PRESCRIBES", "bp.config", "tool.gitlab")
 
     for node_id, name, level, pbs in ELEMENTS:
         node(node_id, "SystemElement", name=name, element_level=level, pbs_code=pbs)
@@ -449,6 +604,7 @@ def build_demo(ontology: Ontology) -> GraphDocument:
             effort_days=activity["effort"],
             rationale=activity["rationale"],
             maturity="draft" if activity["status"] == "in_progress" else "concept",
+            weight=activity.get("weight", "high"),
         )
         link("CONTAINS", activity["wp"], activity["id"])
         link("RESPONSIBLE_FOR", activity["who"], activity["id"])
@@ -459,6 +615,8 @@ def build_demo(ontology: Ontology) -> GraphDocument:
         link("GOVERNED_BY", activity["id"], activity["business"])
         for method in activity["methods"]:
             link("USES_METHOD", activity["id"], method)
+        for index, tool_id in enumerate(activity.get("tools") or []):
+            link("USES_TOOL", activity["id"], tool_id, usage="primary" if index == 0 else "supporting")
         link("ACCOUNTABLE_FOR", "per.okonkwo", activity["id"])
 
     for node_id, name, deliverable_type, producer, milestone in DELIVERABLES:

@@ -85,26 +85,35 @@ def build_ontology(raw: dict[str, Any]) -> Ontology:
         for name, props in (raw.get("property_sets") or {}).items()
     }
 
+    # Property sets every type receives without naming them one by one. This is
+    # how a cross-cutting attribute such as `weight` reaches all 20-odd edge
+    # types, which have no inheritance of their own.
+    defaults = raw.get("default_properties") or {}
+    default_node_sets = [str(s) for s in (defaults.get("node_types") or [])]
+    default_edge_sets = [str(s) for s in (defaults.get("edge_types") or [])]
+
+    def mix_in(spec: Any, set_names: list[str], owner: str) -> None:
+        """Add each named property set, leaving anything the type declares itself."""
+        for set_name in set_names:
+            if set_name not in property_sets:
+                raise OntologyError(f"{owner} includes unknown property set '{set_name}'")
+            for pname, pspec in property_sets[set_name].items():
+                spec.properties.setdefault(pname, pspec)
+
     node_types: dict[str, NodeTypeSpec] = {}
     for name, data in (raw.get("node_types") or {}).items():
         data = dict(data or {})
         spec = NodeTypeSpec.from_dict(name, data)
-        for set_name in data.get("include_properties") or []:
-            if set_name not in property_sets:
-                raise OntologyError(f"Node type '{name}' includes unknown property set '{set_name}'")
-            for pname, pspec in property_sets[set_name].items():
-                spec.properties.setdefault(pname, pspec)
+        mix_in(spec, [str(s) for s in (data.get("include_properties") or [])], f"Node type '{name}'")
+        mix_in(spec, default_node_sets, "default_properties.node_types")
         node_types[name] = spec
 
     edge_types: dict[str, EdgeTypeSpec] = {}
     for name, data in (raw.get("edge_types") or {}).items():
         data = dict(data or {})
         spec = EdgeTypeSpec.from_dict(name, data)
-        for set_name in data.get("include_properties") or []:
-            if set_name not in property_sets:
-                raise OntologyError(f"Edge type '{name}' includes unknown property set '{set_name}'")
-            for pname, pspec in property_sets[set_name].items():
-                spec.properties.setdefault(pname, pspec)
+        mix_in(spec, [str(s) for s in (data.get("include_properties") or [])], f"Edge type '{name}'")
+        mix_in(spec, default_edge_sets, "default_properties.edge_types")
         edge_types[name] = spec
 
     _flatten_inheritance(node_types)

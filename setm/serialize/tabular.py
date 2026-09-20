@@ -16,8 +16,10 @@ from __future__ import annotations
 import json
 from typing import Any
 
+from ..errors import ValidationError
 from ..model import Edge, GraphDocument, Node, ProjectInfo, Provenance
 from ..ontology.schema import Ontology, PropertySpec
+from ..ontology.validate import coerce_value
 
 PROVENANCE_COLUMNS = ["_created_at", "_created_by", "_updated_at", "_updated_by", "_revision", "_source"]
 RELATIONS_SHEET = "_Relations"
@@ -179,16 +181,35 @@ def _as_dicts(table: Table) -> list[dict[str, str]]:
 def _properties_from_row(
     row: dict[str, str], specs: dict[str, PropertySpec], skip: set[str] | None = None
 ) -> dict[str, Any]:
+    """Read one spreadsheet row back into typed properties.
+
+    A sheet gives every cell as text, so values are converted through the
+    ontology's property specs -- the same coercion the write path uses. Without
+    it an effort of 45 would come back as the string "45" and a boolean as
+    "TRUE", and the graph would no longer match what was exported.
+
+    A cell the ontology cannot type (a column someone added by hand) is kept as
+    text rather than dropped: losing a colleague's note is worse than carrying
+    an untyped one.
+    """
     skip = (skip or set()) | {"id"}
     out: dict[str, Any] = {}
     for key, value in row.items():
         if key in skip or key.startswith("_") or value in (None, ""):
             continue
         spec = specs.get(key)
-        if spec and spec.datatype == "list":
-            out[key] = [v.strip() for v in str(value).split(",") if v.strip()]
-        else:
+        if spec is None:
             out[key] = value
+            continue
+        try:
+            coerced = coerce_value(spec, value)
+        except ValidationError:
+            # Keep the raw text; `setm validate` reports it with its location
+            # instead of the import failing halfway through a 5,000-row sheet.
+            out[key] = value
+            continue
+        if coerced is not None:
+            out[key] = coerced
     return out
 
 

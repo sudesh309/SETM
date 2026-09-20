@@ -124,7 +124,7 @@ button, input, select, textarea { font: inherit; color: inherit; }
 #main { height: calc(100vh - 52px); position: relative; }
 .view { display: none; height: 100%; }
 .view.active { display: flex; }
-#view-milestones.active, #view-people.active, #view-kpi.active,
+#view-milestones.active, #view-people.active, #view-tools.active, #view-kpi.active,
 #view-ontology.active, #view-system.active { display: block; }
 
 .scroll-page { height: 100%; overflow-y: auto; padding: 22px 26px 60px; }
@@ -261,12 +261,13 @@ label.inline input[type="range"] { flex: 1; }
   background: var(--panel); border: 1px solid var(--border);
   border-radius: var(--radius); padding: 14px 16px; margin-bottom: 12px;
 }
-.card-head { display: flex; align-items: baseline; gap: 10px; margin-bottom: 9px; }
+.card-head { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 10px; margin-bottom: 9px; }
 .card-head h3 { margin: 0; font-size: 14.5px; }
 .card-head .tag {
-  font-size: 10.5px; letter-spacing: 0.06em; text-transform: uppercase;
+  font-size: 10.5px; letter-spacing: 0.06em; text-transform: uppercase; white-space: nowrap;
   color: var(--text-faint); border: 1px solid var(--border); border-radius: 4px; padding: 1px 6px;
 }
+.card-head .badge { margin-left: 0; }
 
 .grid { display: grid; gap: 12px; }
 .grid-kpi { grid-template-columns: repeat(auto-fill, minmax(232px, 1fr)); }
@@ -372,3 +373,28 @@ table.data tr.clickable:hover td { background: var(--accent-soft); }
   .inspector { width: 300px; }
   .brand-sub, .project-badge span { display: none; }
 }
+
+/* ------------------------------------------------------------ weighting */
+.chip.weight-high { border-color: #4f46e5; }
+.chip.weight-medium { border-color: #818cf8; }
+.chip.weight-low { border-color: var(--border-strong); }
+.chip.weight-high.on { background: rgba(79, 70, 229, 0.22); border-color: #4f46e5; }
+.chip.weight-medium.on { background: rgba(129, 140, 248, 0.18); border-color: #818cf8; }
+.chip.weight-low.on { background: var(--accent-soft); }
+
+.badge {
+  display: inline-block; font-size: 10px; letter-spacing: 0.05em; text-transform: uppercase;
+  padding: 1px 6px; border-radius: 4px; color: #fff; margin-left: 6px;
+}
+.badge.high { background: #4f46e5; }
+.badge.medium { background: #818cf8; }
+.badge.low { background: #94a3b8; }
+.badge.qualified, .badge.not_required { background: var(--good); }
+.badge.in_qualification, .badge.planned { background: var(--watch); }
+.badge.waived { background: #64748b; }
+
+.chain { display: flex; flex-direction: column; gap: 4px; margin-top: 8px; font-size: 12.5px; }
+.chain-row { display: flex; align-items: center; gap: 8px; }
+.chain-arrow { color: var(--text-faint); }
+.chain-manual { color: var(--watch); font-size: 11px; }
+.chain-auto { color: var(--good); font-size: 11px; }

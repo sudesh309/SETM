@@ -239,3 +239,48 @@ def test_server_rejects_path_traversal(running_server):
     except urllib.error.HTTPError as exc:  # urllib may normalise the path away
         status = exc.code
     assert status in (200, 403, 404)
+
+
+def test_report_command_writes_each_format(tmp_path, capsys):
+    target = f"json:{tmp_path / 'demo.json'}"
+    main(["demo", target])
+    capsys.readouterr()
+
+    assert main(["report", "act.mtf", "--storage", target, "--format", "md"]) == 0
+    assert "## Traceability" in capsys.readouterr().out
+
+    assert main(["report", "act.mtf", "--storage", target, "--format", "html", "--out", str(tmp_path / "r.html")]) == 0
+    assert "<!DOCTYPE html>" in (tmp_path / "r.html").read_text()
+    capsys.readouterr()
+
+    assert main(["report", "act.mtf", "--storage", target, "--format", "json", "--out", str(tmp_path / "r.json")]) == 0
+    assert json.loads((tmp_path / "r.json").read_text())["element"]["id"] == "act.mtf"
+
+
+def test_report_for_a_missing_element_exits_non_zero(tmp_path, capsys):
+    target = f"json:{tmp_path / 'demo.json'}"
+    main(["demo", target])
+    capsys.readouterr()
+    assert main(["report", "no-such-element", "--storage", target]) == 2
+    assert "No node with id" in capsys.readouterr().err
+
+
+def test_kpi_tool_section(tmp_path, capsys):
+    target = f"json:{tmp_path / 'demo.json'}"
+    main(["demo", target])
+    capsys.readouterr()
+    assert main(["kpi", "--storage", target, "--section", "tool_usage", "--json"]) == 0
+    tools = json.loads(capsys.readouterr().out)["items"]
+    assert any(t["label"] == "Zemax OpticStudio" for t in tools)
+
+
+def test_demo_includes_tools_and_weights(tmp_path, capsys):
+    target = f"json:{tmp_path / 'demo.json'}"
+    main(["demo", target])
+    capsys.readouterr()
+    stored = json.loads((tmp_path / "demo.json").read_text())
+    tools = [n for n in stored["nodes"] if n["type"] == "Tool"]
+    assert len(tools) >= 5
+    assert all("weight" in n["properties"] for n in stored["nodes"])
+    assert all("weight" in e["properties"] for e in stored["edges"])
+    assert {n["properties"]["weight"] for n in stored["nodes"]} > {"high"}  # not all default

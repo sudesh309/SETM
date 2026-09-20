@@ -19,6 +19,7 @@ from ..graph._fastpath import degree_centrality
 from ..kpi.metrics import KPI_CATALOGUE, compute_kpis
 from ..kpi.telemetry import telemetry
 from ..model import GraphDocument
+from ..report import FORMATS as REPORT_FORMATS, build_report, render, safe_filename
 from ..ontology.loader import _as_source
 from ..serialize.rdfmap import document_to_turtle, ontology_to_owl, turtle_to_document
 from ..serialize.tabular import document_to_tables, tables_to_csv
@@ -312,6 +313,26 @@ def node_context(workspace: Workspace, request: Request) -> Response:
                 limit=request.get_int("limit", 2000),
             )
         )
+
+
+@router.route("GET", "/api/nodes/{node_id}/report")
+def node_report(workspace: Workspace, request: Request) -> Response:
+    """A self-contained report for one element, for a review pack or a minute."""
+    fmt = request.get("format", "html").lower()
+    if fmt not in REPORT_FORMATS:
+        raise ValidationError(f"Unsupported report format '{fmt}' (use {', '.join(REPORT_FORMATS)})")
+    with telemetry.track("report.build", format=fmt):
+        report = build_report(workspace.store, request.params["node_id"], depth=request.get_int("depth", 2))
+        body = render(report, fmt)
+
+    if fmt == "json":
+        return Response(body=body)
+    content_type = "text/html; charset=utf-8" if fmt == "html" else "text/markdown; charset=utf-8"
+    headers = {}
+    # Inline by default so the browser previews it; ?download=1 saves a file.
+    if request.get_bool("download", False):
+        headers["Content-Disposition"] = f'attachment; filename="{safe_filename(report, fmt)}"'
+    return Response(body=body, content_type=content_type, headers=headers)
 
 
 @router.route("GET", "/api/nodes/{node_id}/impact")

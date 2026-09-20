@@ -2,11 +2,16 @@
 # by a SETM_* environment variable, and those by a command-line flag.
 
 [setm]
-# Where the graph lives. See `setm --help` for every backend.
-storage  = "json:./data/project.json"
+# Where the graph lives. GitLab is the default: every save is a commit, so the
+# graph sits under the configuration management and audit trail the programme
+# already has. Leave the project blank and SETM resolves it from
+# SETM_GITLAB_PROJECT or from the origin remote of the surrounding checkout.
+storage  = "gitlab:my-group/my-project?path=systems/graph.json&branch=main"
+
+# Local or alternative backends, one flag or one line away:
+# storage = "json:./data/project.json"
 # storage = "sqlite:./data/project.db"
 # storage = "rdf:./data/project.ttl"
-# storage = "gitlab:my-group/my-project?path=systems/graph.json&branch=main"
 # storage = "gsheet:1AbCdEfGhIjKlMnOpQrStUvWxYz"
 
 # Ontology file, or the name of one shipped in ontologies/.
@@ -17,8 +22,8 @@ ontology = "aerospace-se-core"
 # vocabulary has settled; leave off while importing legacy data.
 strict   = false
 
-# Write to storage after every change. Turn off for a review session where you
-# want an explicit save.
+# Write to storage after every change. With GitLab that means a commit per
+# change: turn it off for a review session and save once, deliberately.
 autosave = true
 
 host     = "127.0.0.1"
@@ -28,3 +33,8 @@ actor    = "your.name"
 # Shared secret required in the X-SETM-Token header. Empty means no auth, which
 # is fine for 127.0.0.1 and not fine for anything else.
 api_token = ""
+
+# Credentials never live in this file. Use the environment:
+#   export SETM_GITLAB_TOKEN=glpat-...            # scope: api
+#   export SETM_GITLAB_PROJECT=my-group/my-project
+#   export GOOGLE_APPLICATION_CREDENTIALS=./service-account.json

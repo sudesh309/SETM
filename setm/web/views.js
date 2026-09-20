@@ -14,6 +14,10 @@ const STATUS_COLOURS = {
   unset: '#475569',
 };
 
+//: Weight is intensity, not alarm. Deliberately not the good/watch/poor
+//: traffic light, which appears on the same page and means something else.
+const WEIGHT_COLOURS = { high: '#4f46e5', medium: '#818cf8', low: '#94a3b8' };
+
 function statusColour(status) {
   return STATUS_COLOURS[status] || '#94a3b8';
 }
@@ -144,6 +148,108 @@ export function renderWorkload(container, people, onOpen) {
   container.append(grid);
 }
 
+// ------------------------------------------------------------------- tools
+export function renderTools(container, tools, onOpen) {
+  container.replaceChildren(
+    pageHead(
+      'Engineering tool chain',
+      'Tools are elements in the graph, not a free-text field, so the chain can be traced the same way '
+      + 'activities are: who administers each tool, what depends on it, whether its qualification is '
+      + 'settled, and where data is re-keyed by hand between one tool and the next.',
+    ),
+  );
+
+  if (!tools.length) {
+    container.append(h('div', { class: 'card' }, [
+      h('p', { class: 'muted', text: 'No tools recorded yet. Add a Tool element and link activities to it with "uses tool".' }),
+    ]));
+    return;
+  }
+
+  // Manual hand-overs first: they are where the model and the analysis drift apart.
+  const manual = [];
+  for (const tool of tools) {
+    for (const hop of tool.feeds || []) {
+      if (!hop.automated) manual.push({ from: tool.label, ...hop });
+    }
+  }
+  if (manual.length) {
+    const warning = h('div', { class: 'card' });
+    warning.append(h('div', { class: 'card-head' }, [
+      h('h3', { text: 'Manual hand-overs' }),
+      h('span', { class: 'muted', text: `${manual.length} link${manual.length === 1 ? '' : 's'} in the chain are not automated` }),
+    ]));
+    const chain = h('div', { class: 'chain' });
+    for (const hop of manual) {
+      chain.append(h('div', { class: 'chain-row' }, [
+        h('strong', { text: hop.from }),
+        h('span', { class: 'chain-arrow', text: '→' }),
+        h('strong', { text: hop.tool }),
+        h('span', { class: 'muted', text: hop.format || 'format not recorded' }),
+        h('span', { class: 'chain-manual', text: 'manual' }),
+      ]));
+    }
+    warning.append(chain);
+    container.append(warning);
+  }
+
+  const grid = h('div', { class: 'grid grid-two' });
+  for (const tool of tools) {
+    const card = h('div', { class: 'card' });
+    card.append(h('div', { class: 'card-head' }, [
+      h('h3', { text: tool.label }),
+      h('span', { class: 'tag', text: formatValue(tool.tool_type) }),
+      h('span', { class: `badge ${tool.weight}`, text: tool.weight }),
+    ]));
+    card.append(h('div', { class: 'muted', style: 'font-size:12px;margin-bottom:8px' }, [
+      [tool.vendor, tool.version].filter(Boolean).join(' · ') || 'vendor not recorded',
+    ]));
+
+    const facts = h('dl', { class: 'prop-grid' });
+    const rows = [
+      ['Used by', `${tool.activity_count} activit${tool.activity_count === 1 ? 'y' : 'ies'}`],
+      ['Administered by', (tool.administrators || []).join(', ') || '— nobody named'],
+      ['Realises method', (tool.methods || []).join(', ') || '—'],
+      ['Licences', tool.licence_count === null || tool.licence_count === undefined
+        ? formatValue(tool.licence_model)
+        : `${tool.licence_count} · ${formatValue(tool.licence_model)}`],
+    ];
+    for (const [key, value] of rows) facts.append(h('dt', { text: key }), h('dd', { text: value }));
+    facts.append(
+      h('dt', { text: 'Qualification' }),
+      h('dd', {}, [
+        h('span', { class: `badge ${tool.qualification_status}`, style: 'margin-left:0', text: formatValue(tool.qualification_status) }),
+      ]),
+    );
+    card.append(facts);
+
+    const hops = tool.feeds || [];
+    if (hops.length) {
+      card.append(h('div', { class: 'section-title', text: 'Feeds' }));
+      const chain = h('div', { class: 'chain' });
+      for (const hop of hops) {
+        chain.append(h('div', { class: 'chain-row' }, [
+          h('span', { class: 'chain-arrow', text: '→' }),
+          h('span', { text: hop.tool }),
+          h('span', { class: 'muted', text: hop.format || '' }),
+          h('span', { class: hop.automated ? 'chain-auto' : 'chain-manual', text: hop.automated ? 'automated' : 'manual' }),
+        ]));
+      }
+      card.append(chain);
+    }
+
+    if (tool.activities.length) {
+      const list = h('ul', { style: 'margin:10px 0 0;padding-left:17px;font-size:12.5px' });
+      for (const activity of tool.activities) {
+        list.append(h('li', { style: 'cursor:pointer;margin-bottom:2px', text: activity.label, onClick: () => onOpen(activity.id) }));
+      }
+      card.append(h('div', { class: 'section-title', text: 'Activities' }), list);
+    }
+    grid.append(card);
+  }
+  container.append(grid);
+}
+
 // -------------------------------------------------------------------- KPIs
 export function renderKpis(container, report, onOpen) {
   container.replaceChildren(
@@ -169,6 +275,30 @@ export function renderKpis(container, report, onOpen) {
     ]),
   ]));
 
+  const weights = report.breakdowns?.by_weight;
+  if (weights) {
+    const card = h('div', { class: 'card' });
+    card.append(h('div', { class: 'card-head' }, [
+      h('h3', { text: 'Weight distribution' }),
+      h('span', { class: 'muted', text: 'what the programme says matters' }),
+    ]));
+    for (const [label, counts] of [['Elements', weights.elements], ['Relations', weights.relations]]) {
+      const total = Object.values(counts).reduce((sum, n) => sum + n, 0) || 1;
+      card.append(h('div', { class: 'muted', style: 'font-size:12px;margin:8px 0 4px', text: label }));
+      card.append(h('div', { class: 'stack-bar' }, ['high', 'medium', 'low'].map((weight) =>
+        h('span', {
+          style: `width:${(100 * (counts[weight] || 0)) / total}%;background:${WEIGHT_COLOURS[weight]}`,
+          title: `${weight}: ${counts[weight] || 0}`,
+        }))));
+      card.append(h('div', { class: 'legend-row' }, ['high', 'medium', 'low'].map((weight) =>
+        h('span', {}, [
+          h('i', { class: 'status-dot', style: `background:${WEIGHT_COLOURS[weight]}` }),
+          `${weight} ${counts[weight] || 0}`,
+        ]))));
+    }
+    container.append(card);
+  }
+
   const grid = h('div', { class: 'grid grid-kpi' });
   for (const kpi of report.kpis || []) {
     const card = h('div', { class: `kpi-card ${kpi.band}` });
@@ -190,7 +320,12 @@ export function renderKpis(container, report, onOpen) {
         const details = h('details', { class: 'kpi-gaps' }, [h('summary', { text: `${gaps.length} to fix` })]);
         const list = h('ul');
         for (const gap of gaps.slice(0, 40)) {
-          list.append(h('li', { text: `${gap.label} (${gap.type})`, onClick: () => onOpen(gap.id) }));
+          const weight = gap.properties?.weight;
+          list.append(h('li', { onClick: () => onOpen(gap.id) }, [
+            gap.label,
+            h('span', { class: 'muted', style: 'font-size:11px', text: ` ${gap.type}` }),
+            weight && weight !== 'high' ? h('span', { class: `badge ${weight}`, text: weight }) : null,
+          ]));
         }
         details.append(list);
         card.append(details);

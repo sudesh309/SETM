@@ -218,3 +218,56 @@ def test_response_serialises_json():
     from setm.api.routes import Response
 
     assert json.loads(Response(body={"a": 1}).rendered()) == {"a": 1}
+
+
+# -- element reports --------------------------------------------------------
+
+def test_report_defaults_to_html(demo_workspace):
+    response = call(demo_workspace, "GET", "/api/nodes/act.mtf/report")
+    assert response.status == 200
+    assert response.content_type.startswith("text/html")
+    assert "<!DOCTYPE html>" in response.body
+    assert "Traceability" in response.body
+
+
+def test_report_markdown_and_json(demo_workspace):
+    markdown = call(demo_workspace, "GET", "/api/nodes/act.mtf/report", format="md")
+    assert markdown.content_type.startswith("text/markdown")
+    assert markdown.body.startswith("# ")
+
+    payload = call(demo_workspace, "GET", "/api/nodes/act.mtf/report", format="json")
+    assert payload.content_type == "application/json"
+    assert payload.body["element"]["id"] == "act.mtf"
+
+
+def test_report_download_sets_a_filename(demo_workspace):
+    inline = call(demo_workspace, "GET", "/api/nodes/act.mtf/report", format="md")
+    assert "Content-Disposition" not in inline.headers
+
+    download = call(demo_workspace, "GET", "/api/nodes/act.mtf/report", format="md", download="1")
+    assert download.headers["Content-Disposition"].startswith("attachment; filename=")
+    assert ".md" in download.headers["Content-Disposition"]
+
+
+def test_report_rejects_an_unknown_format(demo_workspace):
+    response = call(demo_workspace, "GET", "/api/nodes/act.mtf/report", format="docx")
+    assert response.status == 422
+    assert "Unsupported report format" in response.body["error"]["message"]
+
+
+def test_report_for_a_missing_element_is_404(demo_workspace):
+    assert call(demo_workspace, "GET", "/api/nodes/ghost/report").status == 404
+
+
+def test_tool_usage_kpi_section(demo_workspace):
+    response = call(demo_workspace, "GET", "/api/kpi", section="tool_usage")
+    assert response.status == 200
+    labels = {item["label"] for item in response.body["items"]}
+    assert "Zemax OpticStudio" in labels
+
+
+def test_allowed_edges_offers_tool_relations(demo_workspace):
+    response = call(demo_workspace, "GET", "/api/edges/allowed", source_type="Activity")
+    uses_tool = next(e for e in response.body["edge_types"] if e["name"] == "USES_TOOL")
+    assert uses_tool["valid_targets"] == ["Tool"]
+    assert uses_tool["question"] == "how"
