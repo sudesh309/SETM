@@ -229,3 +229,36 @@ def test_gap_lists_lead_with_the_heaviest_elements(demo_store):
     gaps = kpi_by_id(compute_kpis(demo_store), "activity_ownership")["detail"]["unassigned"]
     weights = [g["properties"]["weight"] for g in gaps]
     assert weights == ["high", "medium", "low"]
+
+
+def test_telemetry_process_stats_survive_a_posix_only_resource_module(monkeypatch):
+    """Windows has no `resource` module; telemetry must not depend on it being present.
+
+    setm.kpi.telemetry sets `resource = None` at import time when the import
+    fails, so this simulates that state directly rather than re-importing
+    the module under a faked builtins.__import__ (which is fragile across
+    pytest's own import machinery).
+    """
+    # setm.kpi's __init__ re-exports a `telemetry` singleton that shadows the
+    # submodule of the same name, so `from setm.kpi import telemetry` would
+    # hand back that instance rather than the module. Go through importlib
+    # (which reads sys.modules directly) to get the actual module instead.
+    import importlib
+
+    telemetry_module = importlib.import_module("setm.kpi.telemetry")
+    monkeypatch.setattr(telemetry_module, "resource", None)
+    stats = telemetry_module.Telemetry().process_stats()
+    assert stats["pid"] > 0
+    assert isinstance(stats["cpu_user_seconds"], float)
+    assert isinstance(stats["cpu_system_seconds"], float)
+    # No POSIX resource module and (in this test process) not Windows either,
+    # so peak memory is honestly reported as unavailable rather than crashing.
+    assert stats["max_rss_mb"] is None or isinstance(stats["max_rss_mb"], float)
+
+
+def test_cpu_times_uses_the_portable_os_times_call():
+    from setm.kpi.telemetry import Telemetry
+
+    user, system = Telemetry._cpu_times()
+    assert user >= 0.0
+    assert system >= 0.0

@@ -12,12 +12,17 @@ Every HTTP request, storage round-trip and graph query is timed through
 from __future__ import annotations
 
 import os
-import resource
+import platform
 import threading
 import time
 from collections import deque
 from contextlib import contextmanager
 from typing import Any, Iterator
+
+try:  # POSIX only; Windows has no `resource` module at all.
+    import resource
+except ImportError:  # pragma: no cover - exercised on Windows
+    resource = None  # type: ignore[assignment]
 
 _START_TIME = time.time()
 
@@ -149,16 +154,63 @@ class Telemetry:
         }
 
     def process_stats(self) -> dict[str, Any]:
-        usage = resource.getrusage(resource.RUSAGE_SELF)
-        # ru_maxrss is KiB on Linux, bytes on macOS.
-        rss_kib = usage.ru_maxrss if os.uname().sysname != "Darwin" else usage.ru_maxrss / 1024
+        cpu_user, cpu_system = self._cpu_times()
         return {
             "pid": os.getpid(),
             "threads": threading.active_count(),
-            "cpu_user_seconds": round(usage.ru_utime, 3),
-            "cpu_system_seconds": round(usage.ru_stime, 3),
-            "max_rss_mb": round(rss_kib / 1024, 2),
+            "cpu_user_seconds": cpu_user,
+            "cpu_system_seconds": cpu_system,
+            "max_rss_mb": self._peak_memory_mb(),
         }
+
+    @staticmethod
+    def _cpu_times() -> tuple[float, float]:
+        """User/system CPU seconds. ``os.times()`` is portable; ``resource`` is not."""
+        times = os.times()
+        return round(times.user, 3), round(times.system, 3)
+
+    @staticmethod
+    def _peak_memory_mb() -> float | None:
+        """Peak resident set size in MB, or None where the platform offers no cheap way to ask."""
+        if resource is not None:  # Linux, macOS and other POSIX systems
+            peak = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
+            # ru_maxrss is KiB on Linux, bytes on macOS.
+            rss_kib = peak if platform.system() != "Darwin" else peak / 1024
+            return round(rss_kib / 1024, 2)
+        if platform.system() == "Windows":
+            return Telemetry._windows_peak_memory_mb()
+        return None  # pragma: no cover - unknown platform, no crash either way
+
+    @staticmethod
+    def _windows_peak_memory_mb() -> float | None:  # pragma: no cover - needs a Windows runner
+        """Peak working set via the Win32 API, using only the stdlib (ctypes)."""
+        try:
+            import ctypes
+            from ctypes import wintypes
+
+            class ProcessMemoryCounters(ctypes.Structure):
+                _fields_ = [
+                    ("cb", wintypes.DWORD),
+                    ("PageFaultCount", wintypes.DWORD),
+                    ("PeakWorkingSetSize", ctypes.c_size_t),
+                    ("WorkingSetSize", ctypes.c_size_t),
+                    ("QuotaPeakPagedPoolUsage", ctypes.c_size_t),
+                    ("QuotaPagedPoolUsage", ctypes.c_size_t),
+                    ("QuotaPeakNonPagedPoolUsage", ctypes.c_size_t),
+                    ("QuotaNonPagedPoolUsage", ctypes.c_size_t),
+                    ("PagefileUsage", ctypes.c_size_t),
+                    ("PeakPagefileUsage", ctypes.c_size_t),
+                ]
+
+            counters = ProcessMemoryCounters()
+            counters.cb = ctypes.sizeof(ProcessMemoryCounters)
+            handle = ctypes.windll.kernel32.GetCurrentProcess()
+            ok = ctypes.windll.psapi.GetProcessMemoryInfo(handle, ctypes.byref(counters), counters.cb)
+            if not ok:
+                return None
+            return round(counters.PeakWorkingSetSize / (1024 * 1024), 2)
+        except Exception:
+            return None
 
     def reset(self) -> None:
         with self._lock:
