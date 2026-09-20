@@ -13,6 +13,7 @@ import re
 from dataclasses import dataclass, field
 from typing import Any, Callable, Iterable
 
+from ..config import FIELDS_BY_NAME, SECRET_PLACEHOLDER
 from ..errors import ConfigError, NotFoundError, SetmError, ValidationError
 from ..graph import query
 from ..graph._fastpath import degree_centrality
@@ -172,6 +173,145 @@ def export_ontology(workspace: Workspace, request: Request) -> Response:
     if fmt == "json":
         return Response(body=_as_source(workspace.ontology))
     raise ValidationError(f"Unsupported ontology export format '{fmt}' (use owl or json)")
+
+
+# --------------------------------------------------------------------------- #
+# Settings
+# --------------------------------------------------------------------------- #
+
+
+@router.route("GET", "/api/settings")
+def get_settings(workspace: Workspace, request: Request) -> Response:
+    """Everything the settings page renders from: fields, values and provenance.
+
+    Secrets are never included -- see Settings.redacted().
+    """
+    from ..kpi.metrics import DEFAULT_TARGETS
+    from ..storage.registry import describe_all
+
+    described = workspace.settings.describe()
+    described["backends"] = describe_all()
+    described["kpi_catalogue"] = [
+        {"id": kpi_id, "name": name, "default_target": DEFAULT_TARGETS[kpi_id], "unit": unit}
+        for kpi_id, name, unit in _kpi_target_catalogue()
+    ]
+    described["restart_required_note"] = (
+        "Bind address and port are read when the server starts. Save them, then restart."
+    )
+    return Response(body=described)
+
+
+def _kpi_target_catalogue() -> list[tuple[str, str, str]]:
+    """The KPIs whose target a programme can set, with a readable name."""
+    return [
+        ("objective_coverage", "Objectives covered by activities", "%"),
+        ("activity_ownership", "Activities with a named owner", "%"),
+        ("milestone_anchoring", "Activities anchored to a milestone", "%"),
+        ("process_linkage", "Activities linked to an SE process", "%"),
+        ("process_utilisation", "Declared processes in use", "%"),
+        ("verification_coverage", "Requirements with a verification activity", "%"),
+        ("tool_linkage", "Activities linked to a tool", "%"),
+        ("tool_qualification", "Tools in use with qualification settled", "%"),
+        ("manual_tool_handovers", "Manual hand-overs in the tool chain", ""),
+        ("high_weight_traceability", "High-weight activities fully traced", "%"),
+        ("traceability_completeness", "Traceability completeness", "%"),
+        ("orphan_rate", "Disconnected elements", "%"),
+        ("dependency_cycles", "Circular dependencies", ""),
+    ]
+
+
+@router.route("PATCH", "/api/settings")
+def patch_settings(workspace: Workspace, request: Request) -> Response:
+    """Update settings, optionally persisting them to setm.toml.
+
+    Fields that need the workspace rebuilt (storage, ontology, overlays) are
+    applied but not acted on here: the response says so, and the page calls
+    /api/settings/reopen once the user has decided what to do about unsaved work.
+    """
+    body = request.json_body()
+    settings = workspace.settings
+    changed = settings.apply_update(body.get("values") or {})
+    workspace.apply_settings(changed)
+
+    needs_reopen = sorted(
+        name for name in changed if FIELDS_BY_NAME[name].reopens_workspace
+    )
+    needs_restart = sorted(
+        name for name in changed if FIELDS_BY_NAME[name].restart_required
+    )
+
+    saved_to = ""
+    if body.get("persist"):
+        path = settings.save_file(include_secrets=bool(body.get("include_secrets")))
+        saved_to = str(path.resolve())
+
+    telemetry.increment("settings.updated")
+    return Response(
+        body={
+            "changed": changed,
+            "needs_reopen": needs_reopen,
+            "needs_restart": needs_restart,
+            "unsaved_changes": workspace.store.dirty,
+            "saved_to": saved_to,
+            "shadowed_by_environment": settings.shadowed_by_environment(),
+            "settings": settings.describe(),
+        }
+    )
+
+
+@router.route("POST", "/api/settings/reopen")
+def reopen_workspace(workspace: Workspace, request: Request) -> Response:
+    """Rebuild the workspace against the current settings."""
+    body = request.json_body()
+    return Response(body=workspace.reconfigure(force=bool(body.get("force"))))
+
+
+@router.route("POST", "/api/settings/test-storage")
+def test_storage(workspace: Workspace, request: Request) -> Response:
+    """Probe a candidate backend without switching to it.
+
+    Lets someone confirm a GitLab project, branch and token are right before
+    pointing the live workspace at them.
+    """
+    from ..storage.registry import open_storage
+
+    body = request.json_body()
+    uri = str(body.get("storage") or workspace.settings.storage)
+    options = dict(workspace.settings.storage_options)
+    for key, value in (body.get("storage_options") or {}).items():
+        if value == SECRET_PLACEHOLDER:
+            continue  # keep the stored credential
+        if value in (None, ""):
+            options.pop(key, None)
+        else:
+            options[key] = value
+
+    try:
+        backend = open_storage(uri, **options)
+        backend.bind_ontology(workspace.ontology)
+        with telemetry.track("storage.probe", backend=backend.scheme):
+            health = backend.health()
+            exists = backend.exists()
+    except SetmError as exc:
+        return Response(body={"ok": False, "error": exc.to_dict(), "target": uri})
+
+    ok = health.get("status") == "ok"
+    return Response(
+        body={
+            "ok": ok,
+            "target": uri,
+            "describe": backend.describe(),
+            "health": health,
+            "has_existing_project": exists,
+            "hint": (
+                "Reachable, and a project is already stored there -- opening it will load that graph."
+                if ok and exists
+                else "Reachable, and empty -- opening it will start a new project."
+                if ok
+                else "Not reachable with these settings."
+            ),
+        }
+    )
 
 
 @router.route("GET", "/api/project")
@@ -508,7 +648,10 @@ def kpi(workspace: Workspace, request: Request) -> Response:
     if section not in KPI_CATALOGUE:
         raise ValidationError(f"Unknown KPI section '{section}'. Try: {', '.join(KPI_CATALOGUE)}")
     with telemetry.track("kpi.compute", section=section):
-        body = KPI_CATALOGUE[section](workspace.store)
+        if section == "report":
+            body = compute_kpis(workspace.store, targets=workspace.settings.kpi_targets or None)
+        else:
+            body = KPI_CATALOGUE[section](workspace.store)
     return Response(body=body if isinstance(body, dict) else {"section": section, "items": body})
 
 

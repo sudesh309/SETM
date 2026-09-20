@@ -1,5 +1,9 @@
 # Copy to setm.toml next to where you run `setm`. Every value can be overridden
 # by a SETM_* environment variable, and those by a command-line flag.
+#
+# You do not have to edit this by hand: the Settings page writes this file, and
+# so does `setm config set autosave=false actor=a.okonkwo`. Both show you which
+# layer each value currently comes from.
 
 [setm]
 # Where the graph lives. A local JSON file is the default: no credentials, no
@@ -36,6 +40,12 @@ actor    = "your.name"
 # Shared secret required in the X-SETM-Token header. Empty means no auth, which
 # is fine for 127.0.0.1 and not fine for anything else.
 api_token = ""
+
+# Per-KPI target overrides. Anything left out uses the built-in default, and the
+# Settings page lists every KPI with its default beside the box.
+# [setm.kpi_targets]
+# traceability_completeness = 90
+# tool_qualification = 100
 
 # Credentials never live in this file. Use the environment:
 #   export SETM_GITLAB_TOKEN=glpat-...            # scope: api

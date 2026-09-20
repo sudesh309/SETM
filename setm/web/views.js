@@ -553,3 +553,263 @@ function card(title, rows) {
 function row(label, value) {
   return [h('dt', { text: label }), h('dd', { text: String(value) })];
 }
+
+// ---------------------------------------------------------------- settings
+// Generated from the field metadata the API sends, the same way element forms
+// are generated from the ontology: adding a setting in config.py makes a row
+// appear here with no change to this file.
+
+const SOURCE_EXPLANATION = {
+  default: 'the built-in default',
+  file: 'the config file',
+  environment: 'an environment variable',
+  argument: 'a command-line flag',
+  ui: 'edited here, not yet saved to the file',
+};
+
+export function renderSettings(container, data, actions, initialStatus = '') {
+  const draft = structuredClone(data.values);
+  container.replaceChildren();
+
+  const page = h('div', { class: 'settings-page' });
+  page.append(
+    h('div', { class: 'page-head' }, [
+      h('h1', { text: 'Settings' }),
+      h('p', {}, [
+        'Everything the tool reads at startup. A value can come from four places — the built-in '
+        + 'default, the config file, an environment variable, or a command-line flag — and the tag '
+        + 'beside each field says which one won.',
+      ]),
+    ]),
+  );
+
+  const configCard = h('div', { class: 'card' });
+  configCard.append(h('div', { class: 'card-head' }, [
+    h('h3', { text: 'Config file' }),
+    h('span', { class: 'tag', text: data.config_exists ? 'exists' : 'not written yet' }),
+  ]));
+  configCard.append(h('div', { class: 'mono muted', text: data.config_path }));
+  configCard.append(h('p', { class: 'setting-help' }, [
+    'Saving writes this file so the settings survive a restart. Credentials are left out unless '
+    + 'you tick the box below — a token in a file outlives the session that needed it.',
+  ]));
+  if (data.shadowed_by_environment.length) {
+    configCard.append(h('div', { class: 'setting-warn' }, [
+      `Set in the environment and therefore not changeable here for the next start: `
+      + data.shadowed_by_environment.join(', ')
+      + '. Unset the variable, or change it where it is set.',
+    ]));
+  }
+  page.append(configCard);
+
+  // One card per group, in the order the API listed them.
+  const groups = [];
+  for (const field of data.fields) {
+    let group = groups.find((g) => g.name === field.group);
+    if (!group) groups.push((group = { name: field.group, fields: [] }));
+    group.fields.push(field);
+  }
+
+  const inputs = new Map();
+  for (const group of groups) {
+    const card = h('div', { class: 'card' });
+    card.append(h('div', { class: 'card-head' }, [h('h3', { text: group.name })]));
+
+    for (const field of group.fields) {
+      if (field.type === 'number_map') {
+        card.append(kpiTargets(field, data, draft));
+        continue;
+      }
+      const control = settingControl(field, draft, data);
+      inputs.set(field.name, control);
+      card.append(settingRow(field, data, control));
+    }
+
+    if (group.name === 'Storage') card.append(storageProbe(draft, actions));
+    page.append(card);
+  }
+
+  // -- actions
+  const persist = h('input', { type: 'checkbox', id: 'persist-settings', checked: true });
+  const secrets = h('input', { type: 'checkbox', id: 'persist-secrets' });
+  // Carried across the re-render a save triggers, so the confirmation survives it.
+  const status = h('span', { class: 'settings-status', text: initialStatus });
+
+  const save = h('button', {
+    class: 'btn btn-primary',
+    text: 'Save settings',
+    onClick: async () => {
+      save.disabled = true;
+      status.textContent = 'Saving…';
+      try {
+        const result = await actions.onSave({
+          values: draft,
+          persist: persist.checked,
+          include_secrets: secrets.checked,
+        });
+        const message = describeResult(result);
+        status.textContent = message;
+        if (result.needs_reopen.length) await actions.onOfferReopen(result);
+        else await actions.onReload(message);
+      } catch (error) {
+        status.textContent = error.message;
+      } finally {
+        save.disabled = false;
+      }
+    },
+  });
+
+  page.append(h('div', { class: 'settings-actions' }, [
+    save,
+    h('label', { class: 'inline', style: 'margin:0' }, [persist, h('span', { text: 'Write to the config file' })]),
+    h('label', { class: 'inline', style: 'margin:0' }, [secrets, h('span', { text: 'Include credentials' })]),
+    h('span', { class: 'spacer' }),
+    status,
+  ]));
+
+  container.append(page);
+}
+
+function describeResult(result) {
+  if (!result.changed.length) return 'No changes to save.';
+  const parts = [`Updated ${result.changed.join(', ')}`];
+  if (result.saved_to) parts.push(`written to ${result.saved_to}`);
+  if (result.needs_restart.length) parts.push(`restart to apply ${result.needs_restart.join(', ')}`);
+  return `${parts.join(' · ')}.`;
+}
+
+function settingRow(field, data, control) {
+  const source = data.sources[field.name] || 'default';
+  const meta = h('div', { class: 'setting-meta' }, [
+    h('span', { class: `tag-source ${source}`, title: `Set by ${SOURCE_EXPLANATION[source]}`, text: source }),
+    field.restart_required ? h('span', { class: 'tag-source', text: 'restart' }) : null,
+    field.reopens_workspace ? h('span', { class: 'tag-source', text: 'reopens project' }) : null,
+    field.secret ? h('span', { class: 'tag-source', text: 'secret' }) : null,
+  ]);
+
+  const shadowed = data.shadowed_by_environment.includes(field.name) && source !== 'environment';
+  return h('div', { class: 'setting-row' }, [
+    h('div', { class: 'setting-label' }, [
+      h('strong', { text: field.label }),
+      meta,
+      field.env_var ? h('div', { class: 'setting-help mono', text: field.env_var }) : null,
+    ]),
+    h('div', { class: 'setting-control' }, [
+      control,
+      field.description ? h('div', { class: 'setting-help', text: field.description }) : null,
+      shadowed
+        ? h('div', { class: 'setting-warn', text: `${field.env_var} is set, and will override this on the next start.` })
+        : null,
+    ]),
+  ]);
+}
+
+function settingControl(field, draft, data) {
+  const value = draft[field.name];
+
+  if (field.type === 'boolean') {
+    const input = h('input', { type: 'checkbox', checked: value === true });
+    input.addEventListener('change', () => { draft[field.name] = input.checked; });
+    return h('label', { class: 'inline', style: 'margin:0' }, [
+      input, h('span', { text: value === true ? 'on' : 'off' }),
+    ]);
+  }
+
+  if (field.type === 'list') {
+    const input = h('textarea', { placeholder: field.placeholder, text: (value || []).join('\n') });
+    input.addEventListener('input', () => {
+      draft[field.name] = input.value.split('\n').map((v) => v.trim()).filter(Boolean);
+    });
+    return input;
+  }
+
+  if (field.type === 'mapping') {
+    const input = h('textarea', {
+      placeholder: `${field.placeholder}=main`,
+      text: Object.entries(value || {}).map(([k, v]) => `${k}=${v}`).join('\n'),
+    });
+    input.addEventListener('input', () => {
+      const next = {};
+      for (const line of input.value.split('\n')) {
+        const [key, ...rest] = line.split('=');
+        if (key.trim() && rest.length) next[key.trim()] = rest.join('=').trim();
+      }
+      draft[field.name] = next;
+    });
+    return input;
+  }
+
+  const input = h('input', {
+    // A secret arrives as a placeholder, never as its real value; typing over
+    // it sets a new one, leaving it alone keeps what the server already has.
+    type: field.secret ? 'password' : field.type === 'integer' ? 'number' : 'text',
+    value: value ?? '',
+    placeholder: field.placeholder || String(data.defaults[field.name] ?? ''),
+  });
+  input.addEventListener('input', () => {
+    draft[field.name] = field.type === 'integer' ? Number(input.value) : input.value;
+  });
+  return input;
+}
+
+function kpiTargets(field, data, draft) {
+  const wrapper = h('div', { style: 'padding:6px 0' });
+  wrapper.append(h('p', { class: 'setting-help', style: 'margin-bottom:10px', text: field.description }));
+  const grid = h('div', { class: 'kpi-target-grid' });
+
+  for (const kpi of data.kpi_catalogue) {
+    const current = (draft.kpi_targets || {})[kpi.id];
+    const input = h('input', {
+      type: 'number', step: 'any', min: '0',
+      value: current ?? '',
+      placeholder: String(kpi.default_target),
+      title: `Default ${kpi.default_target}${kpi.unit}`,
+    });
+    input.addEventListener('input', () => {
+      const targets = { ...(draft.kpi_targets || {}) };
+      if (input.value === '') delete targets[kpi.id];
+      else targets[kpi.id] = Number(input.value);
+      draft.kpi_targets = targets;
+    });
+    grid.append(h('div', { class: 'kpi-target' }, [
+      h('label', { text: kpi.name }),
+      input,
+      h('span', { class: 'unit', text: kpi.unit }),
+    ]));
+  }
+  wrapper.append(grid);
+  return wrapper;
+}
+
+function storageProbe(draft, actions) {
+  const result = h('div');
+  const button = h('button', {
+    class: 'btn',
+    text: 'Test connection',
+    onClick: async () => {
+      button.disabled = true;
+      result.replaceChildren(h('div', { class: 'setting-help', text: 'Probing…' }));
+      try {
+        const probe = await actions.onTestStorage({
+          storage: draft.storage,
+          storage_options: draft.storage_options,
+        });
+        const card = h('div', { class: `probe ${probe.ok ? 'ok' : 'bad'}` });
+        card.append(h('div', {}, [h('strong', { text: probe.hint })]));
+        card.append(h('div', { class: 'mono muted', style: 'margin-top:4px', text: probe.target }));
+        if (probe.error) card.append(h('div', { style: 'margin-top:4px', text: probe.error.message }));
+        else if (probe.health?.error) card.append(h('div', { style: 'margin-top:4px', text: probe.health.error }));
+        result.replaceChildren(card);
+      } catch (error) {
+        result.replaceChildren(h('div', { class: 'probe bad', text: error.message }));
+      } finally {
+        button.disabled = false;
+      }
+    },
+  });
+  return h('div', { style: 'padding-top:12px' }, [
+    button,
+    h('span', { class: 'setting-help', style: 'margin-left:10px', text: 'Checks the target is reachable without switching to it.' }),
+    result,
+  ]);
+}

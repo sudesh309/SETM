@@ -101,6 +101,9 @@ by hand between one tool and the next.
 
 **System** — storage health, validation, and live application performance.
 
+**Settings** — every setting the tool reads at startup, editable in the browser
+and written back to `setm.toml`. See below.
+
 **Reports** — any element exports as a self-contained web page (for a review
 pack), Markdown (for a minute or a merge request) or JSON. It carries the
 properties, the traceability grouped by question, the gaps the ontology expects
@@ -125,6 +128,7 @@ setm export --format csv --out ./csv    # one file per element type
 setm import ./from-another-tool.json --merge
 setm convert json:./p.json rdf:./p.ttl  # any backend to any backend
 setm ontology show | check | export | sync
+setm config show | set autosave=false actor=a.okonkwo | path
 ```
 
 ---
@@ -221,6 +225,48 @@ SHACL validator or a triple store:
 setm ontology export --out aerospace-se-core.ttl
 ```
 
+## Settings
+
+Everything the tool reads at startup is editable on the **Settings** page and, if
+you ask it to, written back to `setm.toml` so it survives a restart. The form is
+generated from field metadata in `setm/config.py`, the same way element forms are
+generated from the ontology: add a setting there and a row appears.
+
+A value can come from four places — the built-in default, the config file, a
+`SETM_*` environment variable, or a command-line flag — and the page tags each
+field with **which layer won**. That matters more than it sounds: editing a field
+that an environment variable is shadowing would otherwise look like it worked and
+silently revert on the next start, so the page says so instead.
+
+Three kinds of change behave differently, and the page is explicit about which
+is which:
+
+- **Immediate** — autosave, strict validation, default author, KPI targets.
+- **Reopens the project** — storage target, backend options, ontology, overlays.
+  These rebuild the workspace, so SETM asks first, and refuses to discard unsaved
+  work unless you tell it to.
+- **Needs a restart** — bind address and port, which are read when the server
+  starts.
+
+**Credentials are handled carefully.** A token is never sent to the browser: the
+page receives a placeholder, and sending it back unchanged leaves the stored
+value alone, so a form that never saw the secret cannot erase it. Saving to the
+config file leaves credentials out unless you explicitly tick the box — a token
+written to a file outlives the session that needed it, and the environment is the
+better home for one.
+
+**Test connection** probes a candidate backend without switching to it, and says
+whether a project is already stored there, so you can confirm a GitLab project,
+branch and token are right before pointing the live workspace at them.
+
+The same settings are reachable from the CLI:
+
+```bash
+setm config show                                 # values, with where each came from
+setm config set autosave=false actor=a.okonkwo   # writes setm.toml
+setm config path
+```
+
 ## Weight
 
 Every element and every relation carries `weight`: `low`, `medium` or `high`,
@@ -282,6 +328,8 @@ red number to get the list:
 `dependency_cycles` — plus per-gate readiness, per-person workload,
 per-work-package health, the tool chain and the weight distribution. The overall
 health score is the mean attainment of every measurable KPI against its target.
+Targets are programme-specific, so every one of them is editable on the Settings
+page and applies to the dashboard, the API and the `--fail-under` CI gate alike.
 
 **Application performance** (`/api/kpi/app`, the System page) is measured inside
 the server: request and storage latency with p50/p95/p99, error rates, graph
@@ -306,6 +354,8 @@ GET    /api/nodes/{id}/impact?direction=out
 GET    /api/nodes/{id}/report?format=html|md|json[&download=1]
 GET    /api/paths?source=…&target=…
 GET    /api/kpi  |  /api/kpi/app  |  /api/validate  |  /metrics
+GET    /api/settings                   PATCH /api/settings
+POST   /api/settings/test-storage      POST  /api/settings/reopen
 GET    /api/export?format=json|ttl|owl|csv         POST /api/import
 ```
 
@@ -323,6 +373,7 @@ is a small isolated change:
 ```
 setm/web/          vanilla JS: canvas graph, ontology-driven forms, dashboards
 setm/api/          route table (routes.py) + stdlib server (server.py) + ASGI (asgi.py)
+setm/config.py     settings, their provenance, and the settings-page metadata
 setm/workspace.py  ties ontology + storage + graph together; autosave
 setm/report.py     single-element reports as HTML, Markdown or JSON
 setm/kpi/          project KPIs (metrics.py) and app telemetry (telemetry.py)
@@ -388,7 +439,7 @@ For a much larger programme:
 
 ```bash
 pip install -e '.[dev]'
-pytest                      # 203 tests
+pytest                      # 250 tests
 ```
 
 Covering ontology inheritance and validation, graph mutation and traversal,
@@ -408,7 +459,8 @@ setm.toml.example      configuration template
 ## Configuration
 
 Lowest priority first: defaults → `setm.toml` → `SETM_*` environment variables →
-command-line flags. Copy `setm.toml.example` to `setm.toml` to start.
+command-line flags. Edit it on the Settings page, with `setm config set`, or by
+copying `setm.toml.example` to `setm.toml` and editing it by hand.
 
 ## Status
 

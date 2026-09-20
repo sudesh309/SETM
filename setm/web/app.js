@@ -1,9 +1,11 @@
 // Application controller: state, wiring and the inspector.
 
-import { api } from './api.js';
+import { api, setToken } from './api.js';
 import { GraphView } from './graph.js';
 import { buildPropertyForm, formatValue, h, readPropertyForm } from './forms.js';
-import { renderKpis, renderMilestones, renderOntology, renderSystem, renderTools, renderWorkload } from './views.js';
+import {
+  renderKpis, renderMilestones, renderOntology, renderSettings, renderSystem, renderTools, renderWorkload,
+} from './views.js';
 
 const state = {
   ontology: null,
@@ -645,6 +647,8 @@ async function switchView(view) {
         renderOntology(el('ontology-body'), state.ontology, () => switchView('ontology'));
         toast('Ontology reloaded', 'success');
       });
+    } else if (view === 'settings') {
+      await showSettings();
     } else if (view === 'system') {
       const [health, appKpi, validation] = await Promise.all([api.health(), api.appKpi(), api.validate()]);
       renderSystem(el('system-body'), { health, appKpi, validation }, {
@@ -662,6 +666,63 @@ async function switchView(view) {
   } catch (error) {
     toast(error.message, 'error');
   }
+}
+
+async function showSettings(status = '') {
+  const data = await api.settings();
+  renderSettings(el('settings-body'), data, {
+    onSave: async (payload) => {
+      const result = await api.updateSettings(payload);
+      // An API token set here would lock this page out on the next request,
+      // so the browser adopts it immediately.
+      const token = payload.values?.api_token;
+      if (result.changed.includes('api_token') && token && token !== '********') setToken(token);
+      if (result.changed.length) toast(result.saved_to ? 'Settings saved' : 'Settings applied', 'success');
+      return result;
+    },
+    onReload: async (message) => { await refreshAll(); await showSettings(message); },
+    onTestStorage: (payload) => api.testStorage(payload),
+    onOfferReopen: (result) => confirmReopen(result),
+  }, status);
+}
+
+/** Switching storage or ontology rebuilds the workspace, which may lose work. */
+function confirmReopen(result) {
+  const fields = result.needs_reopen.join(', ');
+  const body = h('div');
+  body.append(h('p', { text: `Changing ${fields} means re-opening the project against the new settings.` }));
+
+  if (result.unsaved_changes) {
+    body.append(h('p', { class: 'setting-warn' }, [
+      'There are unsaved changes in the current project. Save them first, or they are lost.',
+    ]));
+    body.append(h('div', { style: 'display:flex;gap:8px;margin-top:8px' }, [
+      h('button', {
+        class: 'btn',
+        type: 'button',
+        text: 'Save the current project first',
+        onClick: async () => {
+          try {
+            await api.save('saved before switching storage');
+            toast('Saved', 'success');
+            body.querySelector('.setting-warn').textContent = 'Saved. Safe to re-open now.';
+          } catch (error) {
+            toast(error.message, 'error');
+          }
+        },
+      }),
+    ]));
+  } else {
+    body.append(h('p', { class: 'setting-help', text: 'Nothing is unsaved, so this is safe.' }));
+  }
+
+  openModal('Re-open the project?', body, async () => {
+    const outcome = await api.reopenWorkspace(result.unsaved_changes);
+    toast(`Opened ${outcome.storage.scheme}:${outcome.storage.target} — ${outcome.graph.nodes} elements`, 'success');
+    await refreshAll();
+    await selectNode(null);
+    await showSettings();
+  }, { confirmLabel: 'Re-open' });
 }
 
 async function openFromPage(id) {

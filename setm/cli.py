@@ -15,7 +15,7 @@ from pathlib import Path
 from typing import Any
 
 from . import __version__
-from .config import Settings
+from .config import FIELD_SPECS, FIELDS_BY_NAME, SECRET_PLACEHOLDER, Settings
 from .errors import SetmError
 from .kpi.metrics import compute_kpis
 from .model import GraphDocument
@@ -127,6 +127,10 @@ def build_parser() -> argparse.ArgumentParser:
     convert = add("convert", "convert between storage targets or file formats")
     convert.add_argument("source")
     convert.add_argument("destination")
+
+    config_cmd = add("config", "show or change the stored settings")
+    config_cmd.add_argument("action", choices=["show", "set", "path"])
+    config_cmd.add_argument("assignments", nargs="*", metavar="KEY=VALUE", help="for `set`, e.g. autosave=false")
 
     ontology_cmd = add("ontology", "inspect or export the ontology")
     ontology_cmd.add_argument("action", choices=["show", "check", "export", "sync"])
@@ -259,7 +263,10 @@ def cmd_kpi(args: argparse.Namespace) -> int:
     if args.section not in KPI_CATALOGUE:
         print(f"Unknown section '{args.section}'. Try: {', '.join(KPI_CATALOGUE)}")
         return 2
-    result = KPI_CATALOGUE[args.section](workspace.store)
+    if args.section == "report":
+        result = compute_kpis(workspace.store, targets=workspace.settings.kpi_targets or None)
+    else:
+        result = KPI_CATALOGUE[args.section](workspace.store)
 
     if args.json:
         # Same shape the API returns, so a script can use either interchangeably.
@@ -427,6 +434,65 @@ def cmd_convert(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_config(args: argparse.Namespace) -> int:
+    settings = _settings_from_args(args)
+
+    if args.action == "path":
+        print(Path(settings.config_path).resolve())
+        return 0
+
+    if args.action == "set":
+        if not args.assignments:
+            print("Nothing to set. Example: setm config set autosave=false actor=a.okonkwo")
+            return 2
+        updates: dict[str, Any] = {}
+        for item in args.assignments:
+            key, _, value = item.partition("=")
+            key = key.strip()
+            if not value or key not in FIELDS_BY_NAME:
+                print(_colour(f"error: '{item}' is not a KEY=VALUE for a known setting", RED), file=sys.stderr)
+                print(f"  known settings: {', '.join(sorted(FIELDS_BY_NAME))}", file=sys.stderr)
+                return 2
+            updates[key] = value.strip()
+        changed = settings.apply_update(updates)
+        path = settings.save_file(include_secrets=True)
+        print(f"Updated {', '.join(changed) or 'nothing'} in {path.resolve()}")
+        if not changed:
+            print("  (the values given already match)")
+        return 0
+
+    print(f"{BOLD}config{RESET}    {Path(settings.config_path).resolve()}"
+          f"{'' if Path(settings.config_path).exists() else '  (not written yet)'}")
+    shadowed = settings.shadowed_by_environment()
+    values = settings.redacted()
+    group = ""
+    for spec in FIELD_SPECS:
+        if spec.group != group:
+            group = spec.group
+            print(f"\n{BOLD}{group}{RESET}")
+        value = values[spec.name]
+        rendered = _render_setting(value)
+        source = settings.source_of(spec.name)
+        note = "" if source == "default" else f"  [{source}]"
+        if spec.name in shadowed and source != "environment":
+            note += _colour(f"  (overridden by {spec.env_var} on next start)", YELLOW)
+        elif spec.restart_required:
+            note += _colour("  (restart to apply)", DIM)
+        print(f"  {spec.name:<17} {rendered}{note}")
+    print()
+    return 0
+
+
+def _render_setting(value: Any) -> str:
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    if isinstance(value, list):
+        return ", ".join(str(v) for v in value) or _colour("(none)", DIM)
+    if isinstance(value, dict):
+        return ", ".join(f"{k}={v}" for k, v in value.items()) or _colour("(none)", DIM)
+    return str(value) if value != "" else _colour("(empty)", DIM)
+
+
 def cmd_ontology(args: argparse.Namespace) -> int:
     settings = _settings_from_args(args)
     ontology = load_ontology(settings.ontology, overlays=settings.overlays)
@@ -478,6 +544,7 @@ COMMANDS = {
     "export": cmd_export,
     "import": cmd_import,
     "convert": cmd_convert,
+    "config": cmd_config,
     "ontology": cmd_ontology,
 }
 
@@ -494,6 +561,13 @@ def main(argv: list[str] | None = None) -> int:
         return 2
     except KeyboardInterrupt:
         return 130
+    except BrokenPipeError:
+        # `setm kpi | head` closes the pipe early; exit quietly rather than
+        # printing a traceback over the user's terminal.
+        try:
+            sys.stdout.close()
+        finally:
+            return 0
 
 
 if __name__ == "__main__":  # pragma: no cover

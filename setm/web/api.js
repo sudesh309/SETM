@@ -71,6 +71,11 @@ export const api = {
   impact: (id, query) => request('GET', `/api/nodes/${encodeURIComponent(id)}/impact`, { query }),
   paths: (query) => request('GET', '/api/paths', { query }),
 
+  settings: () => request('GET', '/api/settings'),
+  updateSettings: (body) => request('PATCH', '/api/settings', { body }),
+  reopenWorkspace: (force) => request('POST', '/api/settings/reopen', { body: { force } }),
+  testStorage: (body) => request('POST', '/api/settings/test-storage', { body }),
+
   kpi: (section) => request('GET', '/api/kpi', { query: { section } }),
   appKpi: () => request('GET', '/api/kpi/app'),
   validate: () => request('GET', '/api/validate'),

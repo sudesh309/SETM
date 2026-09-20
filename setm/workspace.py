@@ -10,7 +10,7 @@ import threading
 from typing import Any
 
 from .config import Settings
-from .errors import StorageError
+from .errors import ConflictError, StorageError
 from .graph.store import GraphStore
 from .kpi.telemetry import telemetry
 from .model import GraphDocument
@@ -94,6 +94,57 @@ class Workspace:
             telemetry.increment("workspace.reloads")
             self._refresh_gauges()
             return self.store
+
+    def reconfigure(self, *, force: bool = False) -> dict[str, Any]:
+        """Re-open the workspace against the current settings.
+
+        Used when the settings page changes the storage target, the ontology or
+        the overlays: those cannot be edited in place, the whole workspace has
+        to be built again. Unsaved work is never discarded silently -- the
+        caller must save first, or pass ``force`` having been told what it costs.
+        """
+        with self._save_lock:
+            if self.store.dirty and not force:
+                raise ConflictError(
+                    "There are unsaved changes. Save them before switching, or "
+                    "re-send with force to discard them.",
+                    unsaved=True,
+                )
+
+            previous = {"storage": self.backend.describe(), "ontology": self.ontology.id}
+            with telemetry.track("ontology.load"):
+                ontology = load_ontology(self.settings.ontology, overlays=self.settings.overlays)
+
+            backend = open_storage(self.settings.storage, **self.settings.storage_options)
+            backend.bind_ontology(ontology)
+            with telemetry.track("storage.load", backend=backend.scheme):
+                document = backend.load()
+
+            if not document.nodes and not document.edges:
+                document.ontology_id = ontology.id
+                document.ontology_version = ontology.version
+
+            self.backend = backend
+            self.store = GraphStore(document, ontology, strict=self.settings.strict)
+            self.last_save = None
+            telemetry.increment("workspace.reconfigured")
+            self._refresh_gauges()
+            return {
+                "previous": previous,
+                "storage": self.backend.describe(),
+                "ontology": {"id": ontology.id, "version": ontology.version},
+                "graph": self.store.stats(),
+            }
+
+    def apply_settings(self, changed: list[str]) -> dict[str, Any]:
+        """Push a settings change into the live workspace.
+
+        Most settings are read fresh on every use, so only the few the store
+        caches need doing anything about here.
+        """
+        if "strict" in changed:
+            self.store.strict = self.settings.strict
+        return {"applied": changed}
 
     def reload_ontology(self) -> Ontology:
         """Pick up edits to the ontology file without losing the loaded graph."""
