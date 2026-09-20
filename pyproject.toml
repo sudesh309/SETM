@@ -1,0 +1,47 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "setm"
+version = "0.1.0"
+description = "Systems Engineering Traceability Manager - plan, link and visualise systems engineering work on an aerospace programme"
+readme = "README.md"
+requires-python = ">=3.11"
+license = { file = "LICENSE" }
+keywords = ["systems-engineering", "aerospace", "traceability", "ontology", "rdf", "mbse"]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Intended Audience :: Manufacturing",
+  "Intended Audience :: Science/Research",
+  "Programming Language :: Python :: 3.11",
+  "Topic :: Scientific/Engineering",
+]
+
+# The core runs on the standard library alone. Everything below is opt-in.
+dependencies = []
+
+[project.optional-dependencies]
+yaml   = ["PyYAML>=6.0"]                                   # author ontologies in YAML
+google = ["google-auth>=2.23"]                             # Google Sheets / Drive backends
+rdf    = ["rdflib>=7.0"]                                   # parse third-party Turtle
+server = ["fastapi>=0.110", "uvicorn>=0.27"]               # ASGI deployment
+dev    = ["pytest>=8.0", "PyYAML>=6.0"]
+all    = ["PyYAML>=6.0", "google-auth>=2.23", "rdflib>=7.0", "fastapi>=0.110", "uvicorn>=0.27"]
+
+[project.scripts]
+setm = "setm.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["setm*"]
+
+[tool.setuptools.package-data]
+setm = ["web/*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+
+[tool.ruff]
+line-length = 120
+target-version = "py311"

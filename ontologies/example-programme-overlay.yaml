@@ -1,0 +1,75 @@
+# Example of tailoring SETM for one programme without touching the core file.
+#
+#   setm serve json:./data/project.json \
+#       --ontology ./ontologies/example-programme-overlay.yaml
+#
+# `extends_ontology` loads the core vocabulary first, then merges this file over
+# it. Anything not mentioned here is inherited unchanged, so an upgrade to the
+# core ontology does not lose your tailoring.
+
+extends_ontology: aerospace-se-core
+
+ontology:
+  id: halo-programme
+  version: "1.0.0"
+  title: HALO programme tailoring
+  description: >-
+    Adds the certification-authority vocabulary the HALO programme needs on top
+    of the core aerospace ontology.
+  namespace: https://setm.dev/ontology/halo#
+
+node_types:
+  # A wholly new type.
+  CertificationItem:
+    extends: Thing
+    label: Certification item
+    category: Why
+    color: "#e11d48"
+    shape: diamond
+    description: An item of evidence an airworthiness or space authority must accept.
+    properties:
+      authority:
+        type: enum
+        label: Authority
+        group: Certification
+        values: [EASA, FAA, ESA, CAA, national]
+        default: EASA
+      means_of_compliance:
+        type: enum
+        label: Means of compliance
+        group: Certification
+        values: [MOC0, MOC1, MOC2, MOC3, MOC4, MOC5, MOC6, MOC7, MOC8, MOC9]
+      acceptance_status:
+        type: enum
+        label: Acceptance status
+        group: Certification
+        values: [not_submitted, submitted, in_review, accepted, rejected]
+        default: not_submitted
+
+  # Extending a core type: these properties are added to the ones it already has.
+  Activity:
+    properties:
+      security_classification:
+        type: enum
+        label: Security classification
+        group: Governance
+        values: [unclassified, company_confidential, export_controlled, restricted]
+        default: unclassified
+      itar_relevant:
+        type: boolean
+        label: Export-control relevant
+        group: Governance
+
+edge_types:
+  SUBSTANTIATES:
+    label: substantiates
+    inverse_label: is substantiated by
+    question: why
+    domain: [Activity, Deliverable]
+    range: [CertificationItem]
+    color: "#e11d48"
+    description: This work produces the evidence a certification item depends on.
+
+trace_paths:
+  activity_to_certification: [SUBSTANTIATES]
+  certification_to_owners: [~SUBSTANTIATES, ~RESPONSIBLE_FOR]

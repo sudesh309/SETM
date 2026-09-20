@@ -1,0 +1,30 @@
+# Copy to setm.toml next to where you run `setm`. Every value can be overridden
+# by a SETM_* environment variable, and those by a command-line flag.
+
+[setm]
+# Where the graph lives. See `setm --help` for every backend.
+storage  = "json:./data/project.json"
+# storage = "sqlite:./data/project.db"
+# storage = "rdf:./data/project.ttl"
+# storage = "gitlab:my-group/my-project?path=systems/graph.json&branch=main"
+# storage = "gsheet:1AbCdEfGhIjKlMnOpQrStUvWxYz"
+
+# Ontology file, or the name of one shipped in ontologies/.
+ontology = "aerospace-se-core"
+# overlays = ["./ontologies/my-programme-overlay.yaml"]
+
+# Reject any property the ontology does not declare. Recommended once the
+# vocabulary has settled; leave off while importing legacy data.
+strict   = false
+
+# Write to storage after every change. Turn off for a review session where you
+# want an explicit save.
+autosave = true
+
+host     = "127.0.0.1"
+port     = 8765
+actor    = "your.name"
+
+# Shared secret required in the X-SETM-Token header. Empty means no auth, which
+# is fine for 127.0.0.1 and not fine for anything else.
+api_token = ""
