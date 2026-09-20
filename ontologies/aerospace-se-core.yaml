@@ -1,0 +1,851 @@
+# ---------------------------------------------------------------------------
+# SETM core ontology for aerospace systems engineering.
+#
+# This file, not the application code, defines what a project graph may contain.
+# Methods & tools teams own it: add a node type, add a property, add a relation,
+# then `setm ontology reload` (or POST /api/ontology/reload) and the UI, the
+# validator, the RDF/OWL export and the KPI engine all follow immediately.
+#
+# Structure of the vocabulary, in the terms a chief engineer actually asks:
+#   WHAT  - Activity, Deliverable, Requirement, SystemElement
+#   WHO   - Person, Organisation, WorkPackage
+#   WHEN  - Milestone  (programme gates, never calendar dates)
+#   WHY   - Objective, Requirement, Risk
+#   HOW   - SEProcess, BusinessProcess, Method, Tool
+# ---------------------------------------------------------------------------
+
+ontology:
+  id: aerospace-se-core
+  version: "1.1.0"
+  title: Aerospace Systems Engineering Core
+  description: >-
+    Vocabulary for planning and tracing systems engineering work on an aerospace
+    programme. Aligned with the process structure of ISO/IEC/IEEE 15288 and
+    ECSS-E-ST-10C; neither standard is reproduced here, only referenced by
+    clause so an organisation can map its own tailoring.
+  namespace: https://setm.dev/ontology/aerospace#
+  prefixes:
+    se: https://setm.dev/ontology/aerospace#
+
+# Reusable property groups, mixed into types with `include_properties`.
+property_sets:
+  identity:
+    name:
+      type: string
+      required: true
+      label: Name
+      group: Identity
+      ui: {autofocus: true}
+    description:
+      type: text
+      label: Description
+      group: Identity
+      ui: {widget: textarea, rows: 4}
+    reference:
+      type: string
+      label: Reference / document id
+      group: Identity
+      description: Programme document or database reference, e.g. a DOORS module or a drawing number.
+
+  weighting:
+    weight:
+      type: enum
+      label: Weight
+      group: Weighting
+      description: >-
+        How much this element or relation matters to the programme. Applied to
+        every element and every relation via `default_properties` below.
+        Defaults to high, so nothing is quietly treated as unimportant: an
+        engineer must actively decide something is low weight.
+      values: [low, medium, high]
+      default: high
+
+  lifecycle:
+    status:
+      type: enum
+      label: Status
+      group: Progress
+      values: [not_started, in_progress, in_review, blocked, done, cancelled]
+      default: not_started
+    maturity:
+      type: enum
+      label: Maturity
+      group: Progress
+      description: Confidence in the current content, independent of whether the task is finished.
+      values: [concept, draft, reviewed, agreed, baselined]
+      default: concept
+    criticality:
+      type: enum
+      label: Criticality
+      group: Progress
+      values: [low, medium, high, safety_critical]
+      default: medium
+
+# Property sets applied to every type. Edge types have no inheritance of their
+# own, so this is how a cross-cutting attribute reaches all of them.
+default_properties:
+  node_types: [weighting]
+  edge_types: [weighting]
+
+node_types:
+  # -- abstract root --------------------------------------------------------
+  Thing:
+    abstract: true
+    label: Element
+    description: Common ancestor; carries the identity properties every element has.
+    include_properties: [identity]
+
+  # -- WHY ------------------------------------------------------------------
+  Objective:
+    extends: Thing
+    label: Project objective
+    category: Why
+    color: "#c2410c"
+    shape: hexagon
+    description: >-
+      A programme-level outcome the project commits to: a performance target, a
+      certification goal, a cost or schedule commitment. Every activity should
+      trace to at least one.
+    properties:
+      objective_type:
+        type: enum
+        label: Objective type
+        group: Classification
+        values: [performance, safety, certification, cost, schedule, sustainability, operability, contractual]
+        default: performance
+      priority:
+        type: enum
+        label: Priority
+        group: Classification
+        values: [must, should, could]
+        default: must
+      success_criterion:
+        type: text
+        label: Success criterion
+        group: Classification
+        description: How the project will know this objective has been met.
+
+  Risk:
+    extends: Thing
+    label: Risk
+    category: Why
+    color: "#b91c1c"
+    shape: diamond
+    description: A programme or technical risk that systems engineering work is meant to retire.
+    properties:
+      likelihood:
+        type: integer
+        label: Likelihood (1-5)
+        group: Assessment
+        minimum: 1
+        maximum: 5
+        default: 3
+      severity:
+        type: integer
+        label: Severity (1-5)
+        group: Assessment
+        minimum: 1
+        maximum: 5
+        default: 3
+      risk_status:
+        type: enum
+        label: Risk status
+        group: Assessment
+        values: [open, mitigating, retired, accepted]
+        default: open
+
+  Requirement:
+    extends: Thing
+    label: Requirement
+    category: Why
+    color: "#9333ea"
+    shape: rectangle
+    description: A stated need or constraint, at any level of the specification tree.
+    include_properties: [lifecycle]
+    properties:
+      requirement_id:
+        type: string
+        label: Requirement id
+        group: Identity
+        description: Identifier in the authoritative requirements database.
+      statement:
+        type: text
+        label: Statement
+        group: Identity
+        ui: {widget: textarea, rows: 4}
+      level:
+        type: enum
+        label: Level
+        group: Classification
+        values: [stakeholder, system, subsystem, equipment, interface]
+        default: system
+      verification_method:
+        type: enum
+        label: Verification method
+        group: Verification
+        values: [inspection, analysis, demonstration, test, similarity]
+        default: analysis
+
+  # -- WHAT -----------------------------------------------------------------
+  Activity:
+    extends: Thing
+    label: SE activity
+    category: What
+    color: "#2563eb"
+    shape: round
+    description: >-
+      A unit of systems engineering work with an owner, a delivery milestone, a
+      rationale and a process it follows. This is the element the whole tool is
+      built around.
+    include_properties: [lifecycle]
+    properties:
+      activity_type:
+        type: enum
+        label: Activity type
+        group: Classification
+        values:
+          [analysis, trade_study, modelling, requirements_definition, architecture_definition,
+           interface_definition, verification, validation, review, integration, qualification,
+           certification_evidence, coordination]
+        default: analysis
+      rationale:
+        type: text
+        label: Rationale (why this work exists)
+        group: Rationale
+        ui: {widget: textarea, rows: 3}
+        description: The plain-language reason, complementing the SUPPORTS link to an objective.
+      effort_days:
+        type: number
+        label: Estimated effort (person-days)
+        group: Planning
+        minimum: 0
+      progress_percent:
+        type: integer
+        label: Progress (%)
+        group: Progress
+        minimum: 0
+        maximum: 100
+        default: 0
+      confidence:
+        type: enum
+        label: Delivery confidence
+        group: Progress
+        values: [high, medium, low]
+        default: medium
+      notes:
+        type: text
+        label: Notes
+        group: Notes
+        ui: {widget: textarea, rows: 3}
+
+  Deliverable:
+    extends: Thing
+    label: Deliverable
+    category: What
+    color: "#0891b2"
+    shape: rectangle
+    description: A tangible output an activity produces, such as a specification, model or report.
+    include_properties: [lifecycle]
+    properties:
+      deliverable_type:
+        type: enum
+        label: Deliverable type
+        group: Classification
+        values:
+          [specification, icd, architecture_model, analysis_report, trade_study_report,
+           test_plan, test_report, review_data_package, certification_evidence, drawing, dataset]
+        default: analysis_report
+      recipient:
+        type: string
+        label: Recipient
+        group: Classification
+        description: Who or what consumes this deliverable (customer, authority, next work package).
+
+  SystemElement:
+    extends: Thing
+    label: System element
+    category: What
+    color: "#0f766e"
+    shape: rectangle
+    description: An item of the product breakdown - system, subsystem, equipment or interface.
+    properties:
+      element_level:
+        type: enum
+        label: Level
+        group: Classification
+        values: [system_of_systems, system, subsystem, equipment, component, interface]
+        default: subsystem
+      pbs_code:
+        type: string
+        label: PBS code
+        group: Identity
+
+  # -- WHO ------------------------------------------------------------------
+  Person:
+    extends: Thing
+    label: Person
+    category: Who
+    color: "#ca8a04"
+    shape: circle
+    description: A named individual who can be responsible or accountable for work.
+    properties:
+      role:
+        type: enum
+        label: Role
+        group: Organisation
+        values:
+          [chief_engineer, systems_engineer, work_package_leader, domain_specialist,
+           verification_engineer, safety_engineer, quality_engineer, project_manager, supplier_focal]
+        default: systems_engineer
+      organisation:
+        type: string
+        label: Organisation / department
+        group: Organisation
+      email:
+        type: string
+        label: E-mail
+        group: Organisation
+      capacity_percent:
+        type: integer
+        label: Allocation to this project (%)
+        group: Organisation
+        minimum: 0
+        maximum: 100
+        default: 100
+
+  Organisation:
+    extends: Thing
+    label: Organisation
+    category: Who
+    color: "#a16207"
+    shape: rectangle
+    description: A company, department or supplier taking part in the programme.
+    properties:
+      organisation_type:
+        type: enum
+        label: Type
+        group: Classification
+        values: [prime, supplier, customer, authority, partner, internal_department]
+        default: internal_department
+
+  WorkPackage:
+    extends: Thing
+    label: Work package
+    category: Who
+    color: "#7c3aed"
+    shape: rectangle
+    description: The contractual/management container that groups activities and carries a budget.
+    include_properties: [lifecycle]
+    properties:
+      wbs_code:
+        type: string
+        label: WBS code
+        group: Identity
+      budget_days:
+        type: number
+        label: Budget (person-days)
+        group: Planning
+        minimum: 0
+
+  # -- WHEN -----------------------------------------------------------------
+  Milestone:
+    extends: Thing
+    label: Milestone
+    category: When
+    color: "#059669"
+    shape: hexagon
+    description: >-
+      A programme gate. SETM anchors delivery commitments to milestones rather
+      than dates, so the plan stays valid when the schedule moves.
+    properties:
+      gate:
+        type: enum
+        label: Gate
+        group: Programme
+        values: [MCR, SRR, SDR, PDR, CDR, TRR, QR, AR, FRR, ORR, EOL, internal]
+        default: internal
+      sequence:
+        type: integer
+        label: Sequence
+        group: Programme
+        description: Ordering index used by the milestone board. Lower runs earlier.
+        default: 100
+      phase:
+        type: enum
+        label: Programme phase
+        group: Programme
+        values: ["0", "A", "B", "C", "D", "E", "F"]
+        description: ECSS phase letter, where the organisation uses them.
+      gate_criteria:
+        type: text
+        label: Gate criteria
+        group: Programme
+        ui: {widget: textarea, rows: 3}
+
+  # -- HOW ------------------------------------------------------------------
+  SEProcess:
+    extends: Thing
+    label: SE process
+    category: How
+    color: "#4f46e5"
+    shape: rectangle
+    description: A systems engineering process the organisation follows, e.g. an ISO 15288 technical process.
+    properties:
+      standard:
+        type: enum
+        label: Standard
+        group: Governance
+        values: [ISO_15288, ECSS_E_ST_10C, INCOSE_HB, ARP4754A, DO_178C, internal]
+        default: ISO_15288
+      clause:
+        type: string
+        label: Clause / section
+        group: Governance
+        description: Clause reference in the source standard, e.g. "6.4.3".
+      process_group:
+        type: enum
+        label: Process group
+        group: Governance
+        values: [agreement, organisational, technical_management, technical]
+        default: technical
+
+  BusinessProcess:
+    extends: Thing
+    label: Business process
+    category: How
+    color: "#db2777"
+    shape: rectangle
+    description: An internal company process that governs how the work is run or approved.
+    properties:
+      process_owner:
+        type: string
+        label: Process owner
+        group: Governance
+      qms_reference:
+        type: string
+        label: QMS reference
+        group: Governance
+
+  Method:
+    extends: Thing
+    label: Method
+    category: How
+    color: "#0284c7"
+    shape: rectangle
+    description: The technique and tooling used to carry out an activity.
+    properties:
+      technique:
+        type: string
+        label: Technique
+        group: Execution
+        description: e.g. FMECA, Monte Carlo simulation, MBSE (SysML), pugh matrix.
+      tooling:
+        type: string
+        label: Tooling (free text)
+        group: Execution
+        description: >-
+          Informal note only. Prefer linking the method to a Tool element with
+          "is implemented by", so the tool chain is traceable and its
+          qualification status is visible.
+      guidance_reference:
+        type: string
+        label: Guidance reference
+        group: Execution
+
+  Tool:
+    extends: Thing
+    label: Tool
+    category: How
+    color: "#0d9488"
+    shape: rectangle
+    description: >-
+      A software tool in the engineering chain. First class rather than a free
+      text field: tools are planned, owned, qualified and interfaced to each
+      other, and a chief engineer needs to see that chain the same way they see
+      the activity network. Unqualified tools producing certification evidence
+      are a finding waiting to happen.
+    include_properties: [lifecycle]
+    properties:
+      tool_type:
+        type: enum
+        label: Tool type
+        group: Classification
+        values:
+          [requirements_management, architecture_modelling, simulation, analysis,
+           configuration_management, verification, test_automation, plm_plm, data_exchange,
+           documentation, bespoke_script, other]
+        default: analysis
+      vendor:
+        type: string
+        label: Vendor / supplier
+        group: Classification
+      version:
+        type: string
+        label: Version / baseline
+        group: Classification
+        description: The version the programme is committed to, not simply the latest release.
+      licence_model:
+        type: enum
+        label: Licence model
+        group: Availability
+        values: [commercial_floating, commercial_node_locked, site_licence, open_source, internal, free]
+        default: commercial_floating
+      licence_count:
+        type: integer
+        label: Licences available
+        group: Availability
+        minimum: 0
+        description: Seats the programme actually has. A shared bottleneck is a schedule risk.
+      qualification_status:
+        type: enum
+        label: Tool qualification status
+        group: Qualification
+        values: [not_required, planned, in_qualification, qualified, waived]
+        default: not_required
+        description: >-
+          Where tool output is used as certification or verification evidence,
+          the authority will ask whether the tool itself is qualified
+          (e.g. DO-330, or the applicable ECSS tailoring).
+      qualification_reference:
+        type: string
+        label: Qualification reference
+        group: Qualification
+      output_formats:
+        type: list
+        label: Output formats
+        group: Interfaces
+        description: Comma separated, e.g. ReqIF, STEP AP242, XMI, CSV.
+
+edge_types:
+  # -- WHO ------------------------------------------------------------------
+  RESPONSIBLE_FOR:
+    label: is responsible for
+    inverse_label: is carried out by
+    question: who
+    domain: [Person]
+    range: [Activity]
+    cardinality: one_to_many
+    color: "#ca8a04"
+    description: The single engineer who does the work. One responsible person per activity.
+    properties:
+      allocation_percent:
+        type: integer
+        label: Allocation (%)
+        minimum: 0
+        maximum: 100
+
+  ACCOUNTABLE_FOR:
+    label: is accountable for
+    inverse_label: is accountable to
+    question: who
+    domain: [Person]
+    range: [Activity, WorkPackage, Deliverable]
+    color: "#a16207"
+    description: The person who answers for the outcome, typically a work package leader or chief engineer.
+
+  CONSULTED_ON:
+    label: is consulted on
+    question: who
+    domain: [Person, Organisation]
+    range: [Activity]
+    color: "#d6d3d1"
+    style: dashed
+
+  LED_BY:
+    label: is led by
+    question: who
+    domain: [WorkPackage]
+    range: [Person]
+    cardinality: many_to_one
+    color: "#7c3aed"
+
+  CONTAINS:
+    label: contains
+    inverse_label: belongs to
+    question: who
+    domain: [WorkPackage]
+    range: [Activity]
+    cardinality: one_to_many
+    color: "#7c3aed"
+    description: Work-breakdown membership. An activity belongs to exactly one work package.
+
+  BELONGS_TO_ORG:
+    label: belongs to
+    question: who
+    domain: [Person]
+    range: [Organisation]
+    cardinality: many_to_one
+    color: "#a16207"
+
+  # -- WHEN -----------------------------------------------------------------
+  DELIVERS_AT:
+    label: delivers at
+    inverse_label: receives
+    question: when
+    domain: [Activity, Deliverable]
+    range: [Milestone]
+    cardinality: many_to_one
+    color: "#059669"
+    description: The gate by which the work must be complete. Milestones replace dates.
+    properties:
+      commitment:
+        type: enum
+        label: Commitment
+        values: [target, committed, contractual]
+        default: committed
+
+  PRECEDES:
+    label: precedes
+    question: when
+    domain: [Milestone]
+    range: [Milestone]
+    color: "#10b981"
+    description: Gate ordering, used to sequence the milestone board.
+
+  DEPENDS_ON:
+    label: depends on
+    inverse_label: is needed by
+    question: when
+    domain: [Activity]
+    range: [Activity, Deliverable]
+    color: "#f97316"
+    style: dashed
+    description: This activity cannot finish until the other one has delivered.
+    properties:
+      dependency_type:
+        type: enum
+        label: Dependency type
+        values: [finish_to_start, information, resource]
+        default: finish_to_start
+
+  # -- WHY ------------------------------------------------------------------
+  SUPPORTS:
+    label: supports
+    inverse_label: is supported by
+    question: why
+    domain: [Activity, Deliverable, WorkPackage]
+    range: [Objective]
+    color: "#c2410c"
+    description: The rationale link. An activity with no SUPPORTS edge has no stated reason to exist.
+    properties:
+      contribution:
+        type: enum
+        label: Contribution
+        values: [primary, contributing, enabling]
+        default: contributing
+
+  MITIGATES:
+    label: mitigates
+    question: why
+    domain: [Activity, Deliverable]
+    range: [Risk]
+    color: "#b91c1c"
+
+  VERIFIES:
+    label: verifies
+    inverse_label: is verified by
+    question: why
+    domain: [Activity, Deliverable]
+    range: [Requirement]
+    color: "#9333ea"
+
+  SATISFIES:
+    label: satisfies
+    question: why
+    domain: [SystemElement, Deliverable]
+    range: [Requirement]
+    color: "#a855f7"
+
+  DERIVED_FROM:
+    label: is derived from
+    question: why
+    domain: [Requirement]
+    range: [Requirement, Objective]
+    color: "#c084fc"
+    style: dashed
+
+  ALLOCATED_TO:
+    label: is allocated to
+    question: what
+    domain: [Requirement]
+    range: [SystemElement]
+    color: "#0f766e"
+
+  # -- HOW ------------------------------------------------------------------
+  IMPLEMENTS_PROCESS:
+    label: implements process
+    inverse_label: is implemented by
+    question: how
+    domain: [Activity, WorkPackage]
+    range: [SEProcess]
+    color: "#4f46e5"
+    description: Which systems engineering process this work executes.
+
+  GOVERNED_BY:
+    label: is governed by
+    question: how
+    domain: [Activity, WorkPackage, Deliverable, Tool]
+    range: [BusinessProcess]
+    color: "#db2777"
+
+  USES_METHOD:
+    label: uses method
+    question: how
+    domain: [Activity]
+    range: [Method]
+    color: "#0284c7"
+
+  PRESCRIBES:
+    label: prescribes
+    question: how
+    domain: [SEProcess, BusinessProcess]
+    range: [Method, Deliverable, Tool]
+    color: "#818cf8"
+    style: dashed
+    description: The method or output a process mandates - the "expected" side of process compliance.
+
+  USES_TOOL:
+    label: uses tool
+    inverse_label: is used by
+    question: how
+    domain: [Activity]
+    range: [Tool]
+    color: "#0d9488"
+    description: The tool an activity is actually executed in.
+    properties:
+      usage:
+        type: enum
+        label: Usage
+        values: [primary, supporting, one_off]
+        default: primary
+
+  IMPLEMENTED_BY_TOOL:
+    label: is implemented by
+    inverse_label: implements
+    question: how
+    domain: [Method]
+    range: [Tool]
+    color: "#14b8a6"
+    description: The tool that realises a method, e.g. MBSE realised by a SysML modeller.
+
+  ADMINISTERS:
+    label: administers
+    inverse_label: is administered by
+    question: who
+    domain: [Person, Organisation]
+    range: [Tool]
+    color: "#0f766e"
+    description: >-
+      Who owns the tool - its licences, its upgrades, and the answer when it breaks.
+
+  EXCHANGES_DATA_WITH:
+    label: exchanges data with
+    question: how
+    domain: [Tool]
+    range: [Tool]
+    color: "#2dd4bf"
+    style: dashed
+    description: >-
+      A link in the tool chain. Every hop is a place data is transformed and
+      can be lost, so the chain is worth drawing explicitly.
+    properties:
+      exchange_format:
+        type: string
+        label: Exchange format
+        description: e.g. ReqIF, STEP AP242, XMI, CSV, manual re-entry.
+      automated:
+        type: boolean
+        label: Automated
+        description: Manual re-keying between tools is a defect source. Record it honestly.
+
+  # -- WHAT -----------------------------------------------------------------
+  PRODUCES:
+    label: produces
+    inverse_label: is produced by
+    question: what
+    domain: [Activity]
+    range: [Deliverable]
+    color: "#0891b2"
+
+  CONSUMES:
+    label: consumes
+    question: what
+    domain: [Activity]
+    range: [Deliverable]
+    color: "#67e8f9"
+    style: dashed
+
+  APPLIES_TO:
+    label: applies to
+    question: what
+    domain: [Activity, Deliverable, Requirement]
+    range: [SystemElement]
+    color: "#0f766e"
+
+  PART_OF:
+    label: is part of
+    question: what
+    domain: [SystemElement]
+    range: [SystemElement]
+    cardinality: many_to_one
+    color: "#115e59"
+
+# Named chains the UI offers as one-click traceability questions.
+# A '~' prefix walks that step backwards.
+trace_paths:
+  activity_to_objective: [SUPPORTS]
+  activity_to_milestone: [DELIVERS_AT]
+  activity_owner: [~RESPONSIBLE_FOR]
+  objective_to_people: [~SUPPORTS, ~RESPONSIBLE_FOR]
+  milestone_to_owners: [~DELIVERS_AT, ~RESPONSIBLE_FOR]
+  objective_to_processes: [~SUPPORTS, IMPLEMENTS_PROCESS]
+  process_to_deliverables: [~IMPLEMENTS_PROCESS, PRODUCES]
+  requirement_to_verification: [~VERIFIES]
+  work_package_to_milestones: [CONTAINS, DELIVERS_AT]
+  activity_to_tools: [USES_TOOL]
+  tool_to_activities: [~USES_TOOL]
+  tool_to_owners: [~USES_TOOL, ~RESPONSIBLE_FOR]
+  objective_to_tools: [~SUPPORTS, USES_TOOL]
+  method_to_tools: [IMPLEMENTED_BY_TOOL]
+
+# Semantic roles: how the generic KPI engine finds this ontology's concepts.
+# Rename a type above and update it here; no code changes are needed.
+roles:
+  activity: Activity
+  objective: Objective
+  milestone: Milestone
+  person: Person
+  work_package: WorkPackage
+  deliverable: Deliverable
+  se_process: SEProcess
+  business_process: BusinessProcess
+  method: Method
+  tool: Tool
+  requirement: Requirement
+  risk: Risk
+  system_element: SystemElement
+
+  responsible: RESPONSIBLE_FOR
+  accountable: ACCOUNTABLE_FOR
+  delivers_at: DELIVERS_AT
+  supports_objective: SUPPORTS
+  implements_process: IMPLEMENTS_PROCESS
+  governed_by: GOVERNED_BY
+  uses_method: USES_METHOD
+  uses_tool: USES_TOOL
+  administers: ADMINISTERS
+  exchanges_data: EXCHANGES_DATA_WITH
+  implemented_by_tool: IMPLEMENTED_BY_TOOL
+  produces: PRODUCES
+  depends_on: DEPENDS_ON
+  contains: CONTAINS
+  led_by: LED_BY
+  verifies: VERIFIES
+  mitigates: MITIGATES
+
+  weight_property: weight
+  status_property: status
+  sequence_property: sequence
+  gate_property: gate
+  wbs_property: wbs_code
+  done_status_values: done,cancelled

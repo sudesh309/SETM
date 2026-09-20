@@ -1,0 +1,17 @@
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+.pytest_cache/
+.ruff_cache/
+.venv/
+venv/
+
+# Local project data and generated exports
+/data/
+setm.toml
+*.bak[0-9]
+
+# Rust accelerator build output
+/rust/setm_core/target/

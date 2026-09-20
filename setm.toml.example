@@ -1,0 +1,53 @@
+# Copy to setm.toml next to where you run `setm`. Every value can be overridden
+# by a SETM_* environment variable, and those by a command-line flag.
+#
+# You do not have to edit this by hand: the Settings page writes this file, and
+# so does `setm config set autosave=false actor=a.okonkwo`. Both show you which
+# layer each value currently comes from.
+
+[setm]
+# Where the graph lives. A local JSON file is the default: no credentials, no
+# network, nothing to set up.
+storage  = "json:./data/project.json"
+
+# For a real programme, move it to GitLab: every save becomes a commit, so the
+# graph sits under the configuration management and audit trail you already
+# have. Leave the project blank and SETM resolves it from SETM_GITLAB_PROJECT
+# or from the origin remote of the surrounding checkout.
+# storage = "gitlab:my-group/my-project?path=systems/graph.json&branch=main"
+
+# Other backends:
+# storage = "sqlite:./data/project.db"
+# storage = "rdf:./data/project.ttl"
+# storage = "gsheet:1AbCdEfGhIjKlMnOpQrStUvWxYz"
+
+# Ontology file, or the name of one shipped in ontologies/.
+ontology = "aerospace-se-core"
+# overlays = ["./ontologies/my-programme-overlay.yaml"]
+
+# Reject any property the ontology does not declare. Recommended once the
+# vocabulary has settled; leave off while importing legacy data.
+strict   = false
+
+# Write to storage after every change. On GitLab that means a commit per
+# change: turn it off for a review session and save once, deliberately.
+autosave = true
+
+host     = "127.0.0.1"
+port     = 8765
+actor    = "your.name"
+
+# Shared secret required in the X-SETM-Token header. Empty means no auth, which
+# is fine for 127.0.0.1 and not fine for anything else.
+api_token = ""
+
+# Per-KPI target overrides. Anything left out uses the built-in default, and the
+# Settings page lists every KPI with its default beside the box.
+# [setm.kpi_targets]
+# traceability_completeness = 90
+# tool_qualification = 100
+
+# Credentials never live in this file. Use the environment:
+#   export SETM_GITLAB_TOKEN=glpat-...            # scope: api
+#   export SETM_GITLAB_PROJECT=my-group/my-project
+#   export GOOGLE_APPLICATION_CREDENTIALS=./service-account.json
