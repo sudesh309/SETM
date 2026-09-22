@@ -360,7 +360,9 @@ def compute_kpis(store: GraphStore, *, targets: dict[str, float] | None = None) 
         "health_score": _health_score(kpis),
         "breakdowns": {
             "by_milestone": milestone_load(store),
-            "by_person": workload(store),
+            # Bounded here rather than in workload(): a report is a summary,
+            # whereas the workload board has to list everyone to stay editable.
+            "by_person": workload(store, top=50),
             "by_work_package": work_package_health(store, completeness_by_id=completeness_by_id),
             "by_status": status_breakdown(store, activity_type, status_property),
             "by_type": store.stats()["nodes_by_type"],
@@ -486,8 +488,14 @@ def milestone_load(store: GraphStore) -> list[dict[str, Any]]:
     return out
 
 
-def workload(store: GraphStore, *, top: int = 50) -> list[dict[str, Any]]:
-    """Who is carrying what: activity count per person, by milestone."""
+def workload(store: GraphStore, *, top: int | None = None) -> list[dict[str, Any]]:
+    """Who is carrying what: activity count per person, by milestone.
+
+    Uncapped by default, like the other board sections: the workload page is
+    where a person is edited or removed, so truncating it would put everyone
+    past the cut-off out of reach. ``top`` is for callers that want a bounded
+    payload -- the KPI report does.
+    """
     ontology = store.ontology
     person_type = ontology.node_role("person")
     responsible = ontology.edge_role("responsible")
@@ -516,7 +524,7 @@ def workload(store: GraphStore, *, top: int = 50) -> list[dict[str, Any]]:
             }
         )
     out.sort(key=lambda item: -item["activity_count"])
-    return out[:top]
+    return out[:top] if top else out
 
 
 def work_package_health(

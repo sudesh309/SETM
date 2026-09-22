@@ -76,6 +76,19 @@ def test_workload_is_sorted_by_load(demo_store):
     assert people[0]["by_milestone"]
 
 
+def test_workload_lists_everyone_but_the_report_stays_bounded(demo_store):
+    """The workload board is where a person is edited, so it cannot truncate."""
+    for index in range(60):
+        demo_store.add_node("Person", {"name": f"Extra {index:02d}"}, node_id=f"per.extra{index:02d}")
+    total = len(demo_store.nodes_of_type("Person"))
+    assert total > 50
+
+    assert len(workload(demo_store)) == total
+    assert len(workload(demo_store, top=50)) == 50
+    # The KPI report is a summary and stays capped.
+    assert len(compute_kpis(demo_store)["breakdowns"]["by_person"]) == 50
+
+
 def test_work_package_health_reports_completion(demo_store):
     packages = work_package_health(demo_store)
     assert packages
