@@ -26,8 +26,31 @@ function plural(count, singular, pluralForm) {
   return `${count} ${count === 1 ? singular : pluralForm || `${singular}s`}`;
 }
 
-function pageHead(title, description) {
+export function pageHead(title, description) {
   return h('div', { class: 'page-head' }, [h('h1', { text: title }), h('p', { text: description })]);
+}
+
+export function newButton(typeLabel, onNew) {
+  return h('button', { class: 'btn', style: 'margin-bottom:16px', text: `+ New ${typeLabel}`, onClick: onNew });
+}
+
+/** Small edit/delete icon-buttons for a card-head or table row. Stops the click
+ *  from also triggering the row's own onOpen navigation. */
+export function rowActions(id, actions) {
+  return h('span', { class: 'row-actions' }, [
+    h('button', {
+      class: 'btn btn-icon',
+      title: 'Edit',
+      text: '✎',
+      onClick: (event) => { event.stopPropagation(); actions.onEdit(id); },
+    }),
+    h('button', {
+      class: 'btn btn-icon btn-danger',
+      title: 'Delete',
+      text: '×',
+      onClick: (event) => { event.stopPropagation(); actions.onDelete(id); },
+    }),
+  ]);
 }
 
 function bar(percent, band) {
@@ -49,7 +72,7 @@ function stackBar(mix) {
 }
 
 // --------------------------------------------------------------- milestones
-export function renderMilestones(container, milestones, onOpen) {
+export function renderMilestones(container, milestones, actions) {
   container.replaceChildren(
     pageHead(
       'Delivery by milestone',
@@ -57,6 +80,7 @@ export function renderMilestones(container, milestones, onOpen) {
       + 'so the plan survives a schedule change: only the gate a piece of work reports to matters.',
     ),
   );
+  container.append(newButton('Milestone', actions.onNew));
 
   if (!milestones.length) {
     container.append(h('div', { class: 'card' }, [
@@ -71,6 +95,7 @@ export function renderMilestones(container, milestones, onOpen) {
       h('h3', { text: milestone.label }),
       milestone.gate ? h('span', { class: 'tag', text: milestone.gate }) : null,
       h('span', { class: 'muted', text: `${plural(milestone.activity_count, 'activity', 'activities')} · ${plural(milestone.deliverable_count, 'deliverable')}` }),
+      rowActions(milestone.id, actions),
     ]));
 
     if (milestone.activity_count) {
@@ -85,7 +110,7 @@ export function renderMilestones(container, milestones, onOpen) {
       ]);
       const body = h('tbody');
       for (const item of milestone.activities) {
-        body.append(h('tr', { class: 'clickable', onClick: () => onOpen(item.id) }, [
+        body.append(h('tr', { class: 'clickable', onClick: () => actions.onOpen(item.id) }, [
           h('td', { text: item.label }),
           h('td', { class: 'muted', text: formatValue(item.properties?.activity_type) }),
           h('td', {}, [
@@ -104,7 +129,7 @@ export function renderMilestones(container, milestones, onOpen) {
 }
 
 // ------------------------------------------------------------------ people
-export function renderWorkload(container, people, onOpen) {
+export function renderWorkload(container, people, actions) {
   container.replaceChildren(
     pageHead(
       'Who is doing what',
@@ -112,6 +137,7 @@ export function renderWorkload(container, people, onOpen) {
       + 'carrying several commitments into the same gate.',
     ),
   );
+  container.append(newButton('Person', actions.onNew));
 
   if (!people.length) {
     container.append(h('div', { class: 'card' }, [
@@ -127,6 +153,7 @@ export function renderWorkload(container, people, onOpen) {
     card.append(h('div', { class: 'card-head' }, [
       h('h3', { text: person.label }),
       h('span', { class: 'tag', text: formatValue(person.role) }),
+      rowActions(person.id, actions),
     ]));
     card.append(h('div', { class: 'muted', style: 'font-size:12px;margin-bottom:6px' }, [
       `${person.activity_count} activities · ${person.organisation || 'no organisation recorded'}`,
@@ -140,7 +167,7 @@ export function renderWorkload(container, people, onOpen) {
     }
     const list = h('ul', { style: 'margin:10px 0 0;padding-left:17px;font-size:12.5px' });
     for (const activity of person.activities) {
-      list.append(h('li', { class: 'clickable', style: 'cursor:pointer;margin-bottom:2px', text: activity.label, onClick: () => onOpen(activity.id) }));
+      list.append(h('li', { class: 'clickable', style: 'cursor:pointer;margin-bottom:2px', text: activity.label, onClick: () => actions.onOpen(activity.id) }));
     }
     card.append(list);
     grid.append(card);
@@ -149,7 +176,7 @@ export function renderWorkload(container, people, onOpen) {
 }
 
 // ------------------------------------------------------------------- tools
-export function renderTools(container, tools, onOpen) {
+export function renderTools(container, tools, actions) {
   container.replaceChildren(
     pageHead(
       'Engineering tool chain',
@@ -158,6 +185,7 @@ export function renderTools(container, tools, onOpen) {
       + 'settled, and where data is re-keyed by hand between one tool and the next.',
     ),
   );
+  container.append(newButton('Tool', actions.onNew));
 
   if (!tools.length) {
     container.append(h('div', { class: 'card' }, [
@@ -200,6 +228,7 @@ export function renderTools(container, tools, onOpen) {
       h('h3', { text: tool.label }),
       h('span', { class: 'tag', text: formatValue(tool.tool_type) }),
       h('span', { class: `badge ${tool.weight}`, text: tool.weight }),
+      rowActions(tool.id, actions),
     ]));
     card.append(h('div', { class: 'muted', style: 'font-size:12px;margin-bottom:8px' }, [
       [tool.vendor, tool.version].filter(Boolean).join(' · ') || 'vendor not recorded',
@@ -241,7 +270,7 @@ export function renderTools(container, tools, onOpen) {
     if (tool.activities.length) {
       const list = h('ul', { style: 'margin:10px 0 0;padding-left:17px;font-size:12.5px' });
       for (const activity of tool.activities) {
-        list.append(h('li', { style: 'cursor:pointer;margin-bottom:2px', text: activity.label, onClick: () => onOpen(activity.id) }));
+        list.append(h('li', { style: 'cursor:pointer;margin-bottom:2px', text: activity.label, onClick: () => actions.onOpen(activity.id) }));
       }
       card.append(h('div', { class: 'section-title', text: 'Activities' }), list);
     }

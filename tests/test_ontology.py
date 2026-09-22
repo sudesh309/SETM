@@ -41,6 +41,23 @@ def test_every_edge_domain_and_range_is_declared(ontology):
             assert name in ontology.node_types
 
 
+def test_assumption_and_parameter_are_first_class_elements(ontology):
+    assert ontology.node_role("assumption") == "Assumption"
+    assert ontology.node_role("parameter") == "Parameter"
+    assert ontology.edge_role("underlies") == "UNDERLIES"
+    assert ontology.edge_role("has_parameter") == "HAS_PARAMETER"
+    assert ontology.edge_role("parameter_link") == "PARAMETER_LINK"
+    # Parameter-to-parameter links only connect parameters, per the ontology's own rule.
+    link = ontology.edge_type("PARAMETER_LINK")
+    assert link.domain == ["Parameter"]
+    assert link.range == ["Parameter"]
+
+
+def test_status_is_available_on_tasks_risks_assumptions_and_work_packages(ontology):
+    for type_name in ("Activity", "Risk", "Assumption", "WorkPackage"):
+        assert "status" in ontology.node_types[type_name].properties, type_name
+
+
 def test_inheritance_is_flattened():
     onto = build_ontology(MINIMAL)
     assert "name" in onto.node_types["Task"].properties
