@@ -18,26 +18,34 @@
     <span id="project-meta" class="muted"></span>
   </div>
   <nav class="tabs" id="tabs">
-    <button class="tab active" data-view="graph">Graph</button>
+    <button class="tab active" data-view="overview">Overview</button>
     <button class="tab" data-view="milestones">Milestones</button>
     <button class="tab" data-view="people">Workload</button>
     <button class="tab" data-view="tools">Tools</button>
+    <button class="tab" data-view="graph">Graph</button>
     <button class="tab" data-view="tree">Tree</button>
     <button class="tab" data-view="kpi">KPIs</button>
-    <button class="tab" data-view="ontology">Ontology</button>
-    <button class="tab" data-view="system">System</button>
-    <button class="tab" data-view="settings">Settings</button>
   </nav>
   <div class="topbar-actions">
     <span id="dirty-flag" class="pill hidden">unsaved</span>
     <button id="btn-save" class="btn btn-primary" title="Write the graph to storage">Save</button>
+    <div class="menu-wrap">
+      <button id="btn-admin" class="btn btn-icon" title="Ontology, system and settings" aria-haspopup="true" aria-expanded="false">⚙</button>
+      <div class="menu hidden" id="admin-menu" role="menu">
+        <button class="menu-item" data-view="ontology" role="menuitem">Ontology</button>
+        <button class="menu-item" data-view="system" role="menuitem">System</button>
+        <button class="menu-item" data-view="settings" role="menuitem">Settings</button>
+      </div>
+    </div>
     <button id="btn-theme" class="btn btn-icon" title="Toggle light / dark">◐</button>
   </div>
 </header>
 
 <main id="main">
   <!-- ------------------------------------------------------------------ -->
-  <section class="view active" id="view-graph">
+  <section class="view active" id="view-overview"><div class="scroll-page" id="overview-body"></div></section>
+
+  <section class="view" id="view-graph">
     <aside class="sidebar">
       <div class="panel">
         <label class="field-label" for="search">Search</label>
