@@ -70,6 +70,7 @@ def build_parser() -> argparse.ArgumentParser:
         epilog=(
             "examples:\n"
             "  setm demo json:./data/demo.json               build the worked example\n"
+            "  setm demo --example modification json:./data/modification.json  build the modification-programme example\n"
             "  setm serve json:./data/demo.json --open       open the web interface\n"
             "  setm validate --storage json:./data/demo.json check the graph against the ontology\n"
             "  setm kpi --fail-under 70                      use as a CI quality gate\n"
@@ -96,9 +97,16 @@ def build_parser() -> argparse.ArgumentParser:
     init.add_argument("--programme", default="")
     init.add_argument("--chief-engineer", default="")
 
-    demo = add("demo", "create the worked example project")
+    demo = add("demo", "create a worked example project")
     demo.add_argument("target", nargs="?", help="storage URI")
     demo.add_argument("--force", action="store_true", help="overwrite an existing graph")
+    demo.add_argument(
+        "--example",
+        default="payload",
+        choices=["payload", "modification"],
+        help="which worked example to build: 'payload' (new-development satellite payload, default) "
+             "or 'modification' (in-service aircraft modification programme)",
+    )
 
     add("info", "show workspace, storage and ontology status")
 
@@ -201,6 +209,10 @@ def cmd_init(args: argparse.Namespace) -> int:
 
 def cmd_demo(args: argparse.Namespace) -> int:
     from .demo import build_demo
+    from .modification_demo import build_modification_demo
+
+    builders = {"payload": build_demo, "modification": build_modification_demo}
+    build = builders[getattr(args, "example", "payload")]
 
     settings = _settings_from_args(args)
     load_builtin_backends()
@@ -212,7 +224,7 @@ def cmd_demo(args: argparse.Namespace) -> int:
         print(f"{settings.storage} already holds data. Re-run with --force to overwrite.")
         return 1
 
-    document = build_demo(ontology)
+    document = build(ontology)
     result = backend.save(document, message="create demo project", actor="demo")
     print(f"Demo project '{document.project.name}' written to {result.location or settings.storage}")
     print(f"  {len(document.nodes)} elements, {len(document.edges)} relations")

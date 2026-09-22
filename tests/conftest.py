@@ -8,6 +8,7 @@ from setm.config import Settings
 from setm.demo import build_demo
 from setm.graph.store import GraphStore
 from setm.model import GraphDocument
+from setm.modification_demo import build_modification_demo
 from setm.ontology.loader import load_ontology
 from setm.storage import memory
 from setm.storage.registry import load_builtin_backends
@@ -34,6 +35,16 @@ def demo_document(ontology):
 @pytest.fixture
 def demo_store(ontology, demo_document):
     return GraphStore(demo_document, ontology)
+
+
+@pytest.fixture
+def modification_document(ontology):
+    return build_modification_demo(ontology)
+
+
+@pytest.fixture
+def modification_store(ontology, modification_document):
+    return GraphStore(modification_document, ontology)
 
 
 @pytest.fixture

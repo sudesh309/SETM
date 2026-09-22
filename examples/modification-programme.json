@@ -1,0 +1,4878 @@
+{
+  "schema_version": "1.0",
+  "project": {
+    "id": "voyager-renew",
+    "name": "Voyager LR Modification Programme 'RENEW'",
+    "programme": "Voyager LR In-Service Support",
+    "phase": "D",
+    "description": "Mid-life modification programme for the in-service Voyager LR fleet: retire diminishing-manufacturing-source (DMSMS) obsolescence in the avionics suite and deliver a fuel-burn performance improvement retrofit, both governed by a shared aircraft architecture baseline.",
+    "chief_engineer": "D. Hale"
+  },
+  "ontology_id": "aerospace-se-core",
+  "ontology_version": "1.0.0",
+  "revision": 1,
+  "updated_at": "2026-09-22T02:19:05Z",
+  "nodes": [
+    {
+      "id": "per.hale",
+      "type": "Person",
+      "properties": {
+        "role": "chief_engineer",
+        "organisation": "Systems Engineering",
+        "capacity_percent": 100,
+        "weight": "high",
+        "name": "D. Hale"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "per.osei",
+      "type": "Person",
+      "properties": {
+        "role": "systems_engineer",
+        "organisation": "Systems Engineering",
+        "capacity_percent": 100,
+        "weight": "high",
+        "name": "K. Osei"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "per.bianchi",
+      "type": "Person",
+      "properties": {
+        "role": "work_package_leader",
+        "organisation": "Avionics & Systems",
+        "capacity_percent": 100,
+        "weight": "high",
+        "name": "L. Bianchi"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "per.farrow",
+      "type": "Person",
+      "properties": {
+        "role": "work_package_leader",
+        "organisation": "Aerodynamics & Propulsion",
+        "capacity_percent": 100,
+        "weight": "high",
+        "name": "R. Farrow"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "per.nakamura",
+      "type": "Person",
+      "properties": {
+        "role": "verification_engineer",
+        "organisation": "Certification",
+        "capacity_percent": 100,
+        "weight": "high",
+        "name": "S. Nakamura"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "per.reyes",
+      "type": "Person",
+      "properties": {
+        "role": "quality_engineer",
+        "organisation": "Product Assurance",
+        "capacity_percent": 100,
+        "weight": "high",
+        "name": "A. Reyes"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "per.voss",
+      "type": "Person",
+      "properties": {
+        "role": "domain_specialist",
+        "organisation": "Weight Engineering",
+        "capacity_percent": 100,
+        "weight": "high",
+        "name": "T. Voss"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "ms.sdr",
+      "type": "Milestone",
+      "properties": {
+        "gate": "SDR",
+        "sequence": 10,
+        "phase": "D",
+        "gate_criteria": "Modification concept and architecture baseline agreed.",
+        "weight": "high",
+        "name": "Feasibility & Concept Review"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "ms.pdr",
+      "type": "Milestone",
+      "properties": {
+        "gate": "PDR",
+        "sequence": 20,
+        "phase": "D",
+        "gate_criteria": "Kit design and interfaces frozen, budgets closed.",
+        "weight": "high",
+        "name": "Preliminary Design Review"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "ms.cdr",
+      "type": "Milestone",
+      "properties": {
+        "gate": "CDR",
+        "sequence": 30,
+        "phase": "D",
+        "gate_criteria": "Detailed design complete and verifiable.",
+        "weight": "high",
+        "name": "Critical Design Review"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "ms.trr",
+      "type": "Milestone",
+      "properties": {
+        "gate": "TRR",
+        "sequence": 40,
+        "phase": "D",
+        "gate_criteria": "Requalified LRU and performance kit ready for combined ground test.",
+        "weight": "high",
+        "name": "Ground Test Readiness Review"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "ms.frr",
+      "type": "Milestone",
+      "properties": {
+        "gate": "FRR",
+        "sequence": 50,
+        "phase": "D",
+        "gate_criteria": "Certification evidence complete; fleet embodiment can start.",
+        "weight": "high",
+        "name": "Fleet Retrofit Readiness Review"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "obj.dmsms",
+      "type": "Objective",
+      "properties": {
+        "objective_type": "operability",
+        "priority": "must",
+        "success_criterion": "Every avionics LRU on the obsolescence watch list has a qualified replacement or a documented last-time-buy by FRR.",
+        "weight": "high",
+        "name": "Retire all identified DMSMS obsolescence risk items"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "obj.fuelburn",
+      "type": "Objective",
+      "properties": {
+        "objective_type": "performance",
+        "priority": "must",
+        "success_criterion": "Flight-test-correlated analysis demonstrates at least 1.5% fuel-burn reduction relative to the pre-modification baseline.",
+        "weight": "high",
+        "name": "Achieve a fuel-burn reduction at the typical mission profile"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "obj.cost",
+      "type": "Objective",
+      "properties": {
+        "objective_type": "cost",
+        "priority": "should",
+        "success_criterion": "Non-recurring cost within 10% of the approved budget at CDR.",
+        "weight": "medium",
+        "name": "Keep retrofit-kit non-recurring cost within budget"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "obj.cert",
+      "type": "Objective",
+      "properties": {
+        "objective_type": "certification",
+        "priority": "must",
+        "success_criterion": "Certification compliance data package accepted by FRR with no open findings.",
+        "weight": "high",
+        "name": "Certify the modification for fleet-wide retrofit"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "proc.arch",
+      "type": "SEProcess",
+      "properties": {
+        "standard": "ARP4754A",
+        "clause": "5.3",
+        "process_group": "technical",
+        "weight": "high",
+        "name": "Architecture definition"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "proc.reqmgmt",
+      "type": "SEProcess",
+      "properties": {
+        "standard": "ARP4754A",
+        "clause": "5.2",
+        "process_group": "technical",
+        "weight": "high",
+        "name": "Requirements management"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "proc.analysis",
+      "type": "SEProcess",
+      "properties": {
+        "standard": "ARP4754A",
+        "clause": "5.4",
+        "process_group": "technical",
+        "weight": "high",
+        "name": "System analysis"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "proc.verification",
+      "type": "SEProcess",
+      "properties": {
+        "standard": "ARP4754A",
+        "clause": "6",
+        "process_group": "technical",
+        "weight": "high",
+        "name": "Verification"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "proc.safety",
+      "type": "SEProcess",
+      "properties": {
+        "standard": "internal",
+        "clause": "PASS-4",
+        "process_group": "technical_management",
+        "weight": "high",
+        "name": "Safety assessment"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "bp.reviewgate",
+      "type": "BusinessProcess",
+      "properties": {
+        "process_owner": "Chief Engineer Office",
+        "qms_reference": "QMS-ENG-014",
+        "weight": "high",
+        "name": "Design review gate procedure"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "bp.config",
+      "type": "BusinessProcess",
+      "properties": {
+        "process_owner": "Programme Office",
+        "qms_reference": "QMS-CM-003",
+        "weight": "high",
+        "name": "Configuration and change control"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "mth.interface",
+      "type": "Method",
+      "properties": {
+        "technique": "ICD comparison against the architecture baseline",
+        "tooling": "CATIA",
+        "weight": "high",
+        "name": "Interface control analysis"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "mth.perf",
+      "type": "Method",
+      "properties": {
+        "technique": "CFD and flight-test correlation",
+        "tooling": "MATLAB, Simulink",
+        "weight": "high",
+        "name": "Performance substantiation analysis"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "mth.weight",
+      "type": "Method",
+      "properties": {
+        "technique": "Mass properties tracking against the kit budget",
+        "tooling": "spreadsheet-based W&B tool",
+        "weight": "high",
+        "name": "Weight and balance analysis"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "tool.doors",
+      "type": "Tool",
+      "properties": {
+        "tool_type": "requirements_management",
+        "vendor": "IBM",
+        "version": "7.0.2",
+        "licence_model": "site_licence",
+        "licence_count": 30,
+        "qualification_status": "not_required",
+        "output_formats": [
+          "ReqIF",
+          "CSV"
+        ],
+        "status": "in_progress",
+        "maturity": "concept",
+        "criticality": "medium",
+        "weight": "high",
+        "name": "DOORS Next"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "tool.catia",
+      "type": "Tool",
+      "properties": {
+        "tool_type": "architecture_modelling",
+        "vendor": "Dassault Systemes",
+        "version": "V6R2023",
+        "licence_model": "commercial_floating",
+        "licence_count": 15,
+        "qualification_status": "not_required",
+        "output_formats": [
+          "CATPart",
+          "STEP"
+        ],
+        "status": "in_progress",
+        "maturity": "concept",
+        "criticality": "medium",
+        "weight": "high",
+        "name": "CATIA V6"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "tool.matlab",
+      "type": "Tool",
+      "properties": {
+        "tool_type": "analysis",
+        "vendor": "MathWorks",
+        "version": "R2023b",
+        "licence_model": "commercial_floating",
+        "licence_count": 20,
+        "qualification_status": "not_required",
+        "output_formats": [
+          "CSV",
+          "MAT"
+        ],
+        "status": "in_progress",
+        "maturity": "concept",
+        "criticality": "medium",
+        "weight": "high",
+        "name": "MATLAB / Simulink"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "tool.gitlab",
+      "type": "Tool",
+      "properties": {
+        "tool_type": "configuration_management",
+        "vendor": "GitLab Inc.",
+        "version": "16.x",
+        "licence_model": "site_licence",
+        "qualification_status": "not_required",
+        "output_formats": [
+          "JSON",
+          "Turtle"
+        ],
+        "status": "in_progress",
+        "maturity": "concept",
+        "criticality": "medium",
+        "weight": "medium",
+        "name": "GitLab"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "wp.avionics",
+      "type": "WorkPackage",
+      "properties": {
+        "wbs_code": "1000",
+        "budget_days": 210.0,
+        "status": "in_progress",
+        "maturity": "concept",
+        "criticality": "medium",
+        "weight": "high",
+        "name": "WP1000 Avionics & Systems Obsolescence Redesign"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "wp.perf",
+      "type": "WorkPackage",
+      "properties": {
+        "wbs_code": "2000",
+        "budget_days": 260.0,
+        "status": "in_progress",
+        "maturity": "concept",
+        "criticality": "medium",
+        "weight": "high",
+        "name": "WP2000 Aerodynamic & Propulsion Performance Improvement"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "wp.weight",
+      "type": "WorkPackage",
+      "properties": {
+        "wbs_code": "3000",
+        "budget_days": 120.0,
+        "status": "in_progress",
+        "maturity": "concept",
+        "criticality": "medium",
+        "weight": "high",
+        "name": "WP3000 Cabin & Structure Weight Reduction"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "wp.cert",
+      "type": "WorkPackage",
+      "properties": {
+        "wbs_code": "4000",
+        "budget_days": 150.0,
+        "status": "in_progress",
+        "maturity": "concept",
+        "criticality": "medium",
+        "weight": "high",
+        "name": "WP4000 Certification & Compliance"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "sys.aircraft",
+      "type": "SystemElement",
+      "properties": {
+        "element_level": "system_of_systems",
+        "pbs_code": "AC",
+        "weight": "high",
+        "name": "Voyager LR airframe"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "sys.avionics",
+      "type": "SystemElement",
+      "properties": {
+        "element_level": "system",
+        "pbs_code": "AC-10",
+        "weight": "high",
+        "name": "Avionics & systems"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "sys.propulsion",
+      "type": "SystemElement",
+      "properties": {
+        "element_level": "system",
+        "pbs_code": "AC-20",
+        "weight": "high",
+        "name": "Propulsion system"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "sys.structure",
+      "type": "SystemElement",
+      "properties": {
+        "element_level": "system",
+        "pbs_code": "AC-30",
+        "weight": "high",
+        "name": "Airframe & structure"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "sys.cabin",
+      "type": "SystemElement",
+      "properties": {
+        "element_level": "system",
+        "pbs_code": "AC-40",
+        "weight": "high",
+        "name": "Cabin systems"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "sys.iface",
+      "type": "SystemElement",
+      "properties": {
+        "element_level": "interface",
+        "pbs_code": "AC-IF-01",
+        "weight": "high",
+        "name": "Avionics-to-cabin data interface"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "sys.fmc",
+      "type": "SystemElement",
+      "properties": {
+        "element_level": "equipment",
+        "pbs_code": "AC-10-01",
+        "weight": "high",
+        "name": "Flight-management LRU"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "sys.nacelle",
+      "type": "SystemElement",
+      "properties": {
+        "element_level": "equipment",
+        "pbs_code": "AC-20-01",
+        "weight": "high",
+        "name": "Engine nacelle / performance-improvement kit"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "sys.wingtip",
+      "type": "SystemElement",
+      "properties": {
+        "element_level": "subsystem",
+        "pbs_code": "AC-30-01",
+        "weight": "high",
+        "name": "Wingtip device"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "sys.galley",
+      "type": "SystemElement",
+      "properties": {
+        "element_level": "equipment",
+        "pbs_code": "AC-40-01",
+        "weight": "high",
+        "name": "Cabin galley assembly"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "req.dmsms",
+      "type": "Requirement",
+      "properties": {
+        "requirement_id": "VOY-REQ-0010",
+        "statement": "The replacement flight-management LRU shall be form-fit-function equivalent to the obsolete unit.",
+        "level": "subsystem",
+        "verification_method": "inspection",
+        "status": "in_review",
+        "maturity": "reviewed",
+        "criticality": "medium",
+        "weight": "high",
+        "name": "The replacement flight-management LRU shall be form-fit-function equiv"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "req.fuelburn",
+      "type": "Requirement",
+      "properties": {
+        "requirement_id": "VOY-REQ-0020",
+        "statement": "The modified aircraft shall demonstrate a fuel-burn reduction of at least 1.5% relative to the pre-modification baseline at the typical mission profile.",
+        "level": "system",
+        "verification_method": "test",
+        "status": "in_review",
+        "maturity": "reviewed",
+        "criticality": "medium",
+        "weight": "high",
+        "name": "The modified aircraft shall demonstrate a fuel-burn reduction of at le"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "req.weight",
+      "type": "Requirement",
+      "properties": {
+        "requirement_id": "VOY-REQ-0030",
+        "statement": "The retrofit kit installed weight shall not exceed the structural weight budget allocated to the cabin modification.",
+        "level": "subsystem",
+        "verification_method": "inspection",
+        "status": "in_review",
+        "maturity": "reviewed",
+        "criticality": "medium",
+        "weight": "high",
+        "name": "The retrofit kit installed weight shall not exceed the structural weig"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "req.iface",
+      "type": "Requirement",
+      "properties": {
+        "requirement_id": "VOY-REQ-0040",
+        "statement": "The modification shall preserve the existing avionics-to-cabin data interface without requiring new wiring runs.",
+        "level": "interface",
+        "verification_method": "demonstration",
+        "status": "in_review",
+        "maturity": "reviewed",
+        "criticality": "medium",
+        "weight": "high",
+        "name": "The modification shall preserve the existing avionics-to-cabin data in"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "risk.supplier",
+      "type": "Risk",
+      "properties": {
+        "likelihood": 3,
+        "severity": 4,
+        "risk_status": "mitigating",
+        "status": "not_started",
+        "maturity": "concept",
+        "criticality": "medium",
+        "weight": "high",
+        "name": "Sole-source replacement LRU supplier lead time exceeds the programme schedule"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "risk.requal",
+      "type": "Risk",
+      "properties": {
+        "likelihood": 3,
+        "severity": 3,
+        "risk_status": "mitigating",
+        "status": "not_started",
+        "maturity": "concept",
+        "criticality": "medium",
+        "weight": "high",
+        "name": "Requalification test campaign slips past CDR"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "risk.weightgrowth",
+      "type": "Risk",
+      "properties": {
+        "likelihood": 2,
+        "severity": 4,
+        "risk_status": "mitigating",
+        "status": "not_started",
+        "maturity": "concept",
+        "criticality": "medium",
+        "weight": "high",
+        "name": "Weight growth in the retrofit kit erodes the fuel-burn benefit"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "asm.formfit",
+      "type": "Assumption",
+      "properties": {
+        "confidence": "medium",
+        "validation_method": "Confirm via interface control document review at PDR",
+        "status": "not_started",
+        "maturity": "concept",
+        "criticality": "medium",
+        "weight": "high",
+        "name": "The replacement flight-management LRU is form-fit-function equivalent to the obsolete unit"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "asm.pipdata",
+      "type": "Assumption",
+      "properties": {
+        "confidence": "high",
+        "validation_method": "Cross-check against the kit supplier's service bulletin once issued",
+        "status": "not_started",
+        "maturity": "concept",
+        "criticality": "medium",
+        "weight": "high",
+        "name": "The engine performance-improvement kit's certified data package is reusable fleet-wide without aircraft-specific re-substantiation"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "asm.wiring",
+      "type": "Assumption",
+      "properties": {
+        "confidence": "low",
+        "validation_method": "Physical inspection during the first aircraft induction",
+        "status": "not_started",
+        "maturity": "concept",
+        "criticality": "medium",
+        "weight": "high",
+        "name": "Existing wiring and connectors support the replacement LRU without rerouting"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "par.fuelburn",
+      "type": "Parameter",
+      "properties": {
+        "parameter_type": "performance",
+        "value": "1.8",
+        "unit": "%",
+        "weight": "high",
+        "name": "Fuel burn reduction"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "par.weightbudget",
+      "type": "Parameter",
+      "properties": {
+        "parameter_type": "performance",
+        "value": "45",
+        "unit": "kg",
+        "weight": "high",
+        "name": "Retrofit kit structural weight budget"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "par.dmsms_index",
+      "type": "Parameter",
+      "properties": {
+        "parameter_type": "business",
+        "value": "12",
+        "unit": "items",
+        "weight": "high",
+        "name": "Open DMSMS risk items"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "par.nrc",
+      "type": "Parameter",
+      "properties": {
+        "parameter_type": "cost",
+        "value": "4.2",
+        "unit": "$M",
+        "weight": "high",
+        "name": "Non-recurring cost"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "act.archbaseline",
+      "type": "Activity",
+      "properties": {
+        "activity_type": "architecture_definition",
+        "rationale": "The OAD/OPD/OSD baseline is what every obsolescence and performance activity traces back to; nothing downstream can be judged against a moving architecture.",
+        "effort_days": 40.0,
+        "progress_percent": 100,
+        "confidence": "medium",
+        "status": "done",
+        "maturity": "concept",
+        "criticality": "medium",
+        "weight": "high",
+        "name": "Establish and baseline the aircraft architecture description (OAD, OPD, OSD)"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "act.dmsms_survey",
+      "type": "Activity",
+      "properties": {
+        "activity_type": "analysis",
+        "rationale": "Prioritises which obsolete parts actually threaten production continuity before design effort is committed to any of them.",
+        "effort_days": 30.0,
+        "progress_percent": 100,
+        "confidence": "medium",
+        "status": "done",
+        "maturity": "concept",
+        "criticality": "medium",
+        "weight": "high",
+        "name": "Survey and prioritise DMSMS obsolescence items across the avionics suite"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "act.lru_redesign",
+      "type": "Activity",
+      "properties": {
+        "activity_type": "architecture_definition",
+        "rationale": "The replacement LRU has to fit the existing bay and interface without triggering a wiring change - the assumption the whole obsolescence workstream rests on.",
+        "effort_days": 70.0,
+        "progress_percent": 55,
+        "confidence": "medium",
+        "status": "in_progress",
+        "maturity": "draft",
+        "criticality": "medium",
+        "weight": "high",
+        "name": "Design the replacement flight-management LRU"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "act.iface_analysis",
+      "type": "Activity",
+      "properties": {
+        "activity_type": "interface_definition",
+        "rationale": "Confirms the OSD's data interface still holds once the replacement unit is installed.",
+        "effort_days": 25.0,
+        "progress_percent": 80,
+        "confidence": "medium",
+        "status": "in_review",
+        "maturity": "concept",
+        "criticality": "medium",
+        "weight": "medium",
+        "name": "Re-verify the avionics-to-cabin interface with the replacement LRU installed"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "act.perf_trade",
+      "type": "Activity",
+      "properties": {
+        "activity_type": "trade_study",
+        "rationale": "Weighs nacelle/kit options against fuel-burn benefit and installation complexity before the design is frozen.",
+        "effort_days": 45.0,
+        "progress_percent": 85,
+        "confidence": "medium",
+        "status": "in_review",
+        "maturity": "concept",
+        "criticality": "medium",
+        "weight": "high",
+        "name": "Trade study: engine performance-improvement kit configuration"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "act.perf_analysis",
+      "type": "Activity",
+      "properties": {
+        "activity_type": "analysis",
+        "rationale": "Primary evidence the stated fuel-burn objective is achievable before the kit design closes.",
+        "effort_days": 60.0,
+        "progress_percent": 40,
+        "confidence": "medium",
+        "status": "in_progress",
+        "maturity": "draft",
+        "criticality": "medium",
+        "weight": "high",
+        "name": "Fuel-burn performance substantiation analysis"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "act.weight_track",
+      "type": "Activity",
+      "properties": {
+        "activity_type": "analysis",
+        "rationale": "Weight growth in the kit directly erodes the fuel-burn benefit the programme is committed to.",
+        "effort_days": 30.0,
+        "progress_percent": 60,
+        "confidence": "medium",
+        "status": "in_progress",
+        "maturity": "draft",
+        "criticality": "medium",
+        "weight": "high",
+        "name": "Maintain the retrofit-kit structural weight budget"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "act.cabin_redesign",
+      "type": "Activity",
+      "properties": {
+        "activity_type": "architecture_definition",
+        "rationale": "The galley assembly is the single largest weight-reduction item in the kit.",
+        "effort_days": 50.0,
+        "progress_percent": 0,
+        "confidence": "medium",
+        "status": "not_started",
+        "maturity": "concept",
+        "criticality": "medium",
+        "weight": "medium",
+        "name": "Redesign the cabin galley assembly for weight reduction"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "act.certbasis",
+      "type": "Activity",
+      "properties": {
+        "activity_type": "coordination",
+        "rationale": "Agrees which existing certification basis items are affected before the design commits.",
+        "effort_days": 35.0,
+        "progress_percent": 50,
+        "confidence": "medium",
+        "status": "in_progress",
+        "maturity": "draft",
+        "criticality": "medium",
+        "weight": "high",
+        "name": "Agree the certification basis items affected by the modification"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "act.vplan",
+      "type": "Activity",
+      "properties": {
+        "activity_type": "verification",
+        "rationale": "Every requirement needs an assigned verification method before ground test is defined.",
+        "effort_days": 40.0,
+        "progress_percent": 0,
+        "confidence": "medium",
+        "status": "not_started",
+        "maturity": "concept",
+        "criticality": "medium",
+        "weight": "high",
+        "name": "Build the modification verification plan and matrix"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "act.fmeca",
+      "type": "Activity",
+      "properties": {
+        "activity_type": "analysis",
+        "rationale": "Safety assessment evidence required before ground test readiness.",
+        "effort_days": 35.0,
+        "progress_percent": 0,
+        "confidence": "medium",
+        "status": "not_started",
+        "maturity": "concept",
+        "criticality": "medium",
+        "weight": "medium",
+        "name": "Modification FMECA and critical items list"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "act.groundtest",
+      "type": "Activity",
+      "properties": {
+        "activity_type": "integration",
+        "rationale": "The first point where the requalified LRU and the performance kit are proven together, not just as independent workstreams.",
+        "effort_days": 60.0,
+        "progress_percent": 0,
+        "confidence": "medium",
+        "status": "not_started",
+        "maturity": "concept",
+        "criticality": "medium",
+        "weight": "high",
+        "name": "Combined ground test: requalified LRU and performance kit"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "del.oad",
+      "type": "Deliverable",
+      "properties": {
+        "deliverable_type": "architecture_model",
+        "status": "not_started",
+        "maturity": "concept",
+        "criticality": "medium",
+        "weight": "high",
+        "name": "Overall Aircraft Design (OAD) baseline"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "del.opd",
+      "type": "Deliverable",
+      "properties": {
+        "deliverable_type": "architecture_model",
+        "status": "not_started",
+        "maturity": "concept",
+        "criticality": "medium",
+        "weight": "high",
+        "name": "Outline Performance Diagram (OPD)"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "del.osd",
+      "type": "Deliverable",
+      "properties": {
+        "deliverable_type": "architecture_model",
+        "status": "not_started",
+        "maturity": "concept",
+        "criticality": "medium",
+        "weight": "high",
+        "name": "Outline Systems Diagram (OSD)"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "del.dmsms_report",
+      "type": "Deliverable",
+      "properties": {
+        "deliverable_type": "analysis_report",
+        "status": "not_started",
+        "maturity": "concept",
+        "criticality": "medium",
+        "weight": "high",
+        "name": "DMSMS obsolescence impact assessment"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "del.perf_report",
+      "type": "Deliverable",
+      "properties": {
+        "deliverable_type": "analysis_report",
+        "status": "not_started",
+        "maturity": "concept",
+        "criticality": "medium",
+        "weight": "high",
+        "name": "Performance substantiation report"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "del.certdata",
+      "type": "Deliverable",
+      "properties": {
+        "deliverable_type": "certification_evidence",
+        "status": "not_started",
+        "maturity": "concept",
+        "criticality": "medium",
+        "weight": "high",
+        "name": "Certification compliance data package"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "del.wnb",
+      "type": "Deliverable",
+      "properties": {
+        "deliverable_type": "analysis_report",
+        "status": "not_started",
+        "maturity": "concept",
+        "criticality": "medium",
+        "weight": "high",
+        "name": "Weight & balance report"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "rel-edc06e191aac",
+      "type": "PRECEDES",
+      "source": "ms.sdr",
+      "target": "ms.pdr",
+      "properties": {
+        "weight": "high"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "rel-e1111af6cb15",
+      "type": "PRECEDES",
+      "source": "ms.pdr",
+      "target": "ms.cdr",
+      "properties": {
+        "weight": "high"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "rel-f8b230fbcc56",
+      "type": "PRECEDES",
+      "source": "ms.cdr",
+      "target": "ms.trr",
+      "properties": {
+        "weight": "high"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "rel-8d981329f559",
+      "type": "PRECEDES",
+      "source": "ms.trr",
+      "target": "ms.frr",
+      "properties": {
+        "weight": "high"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "rel-7c747f6cdc14",
+      "type": "ADMINISTERS",
+      "source": "per.osei",
+      "target": "tool.doors",
+      "properties": {
+        "weight": "high"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "rel-e03c03852ea8",
+      "type": "ADMINISTERS",
+      "source": "per.bianchi",
+      "target": "tool.catia",
+      "properties": {
+        "weight": "high"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "rel-0322dcb0a967",
+      "type": "ADMINISTERS",
+      "source": "per.farrow",
+      "target": "tool.matlab",
+      "properties": {
+        "weight": "high"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "rel-8d92794525fd",
+      "type": "ADMINISTERS",
+      "source": "per.osei",
+      "target": "tool.gitlab",
+      "properties": {
+        "weight": "high"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "rel-30682980db18",
+      "type": "IMPLEMENTED_BY_TOOL",
+      "source": "mth.interface",
+      "target": "tool.catia",
+      "properties": {
+        "weight": "high"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "rel-d3783dffe448",
+      "type": "IMPLEMENTED_BY_TOOL",
+      "source": "mth.perf",
+      "target": "tool.matlab",
+      "properties": {
+        "weight": "high"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "rel-6ed8fa9c42c9",
+      "type": "EXCHANGES_DATA_WITH",
+      "source": "tool.doors",
+      "target": "tool.catia",
+      "properties": {
+        "exchange_format": "ReqIF",
+        "automated": true,
+        "weight": "high"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "rel-0767c0c43def",
+      "type": "EXCHANGES_DATA_WITH",
+      "source": "tool.catia",
+      "target": "tool.matlab",
+      "properties": {
+        "exchange_format": "STEP",
+        "automated": false,
+        "weight": "high"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "rel-6fb90503b39f",
+      "type": "EXCHANGES_DATA_WITH",
+      "source": "tool.matlab",
+      "target": "tool.gitlab",
+      "properties": {
+        "exchange_format": "CSV",
+        "automated": true,
+        "weight": "high"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "rel-4a481c14736a",
+      "type": "LED_BY",
+      "source": "wp.avionics",
+      "target": "per.bianchi",
+      "properties": {
+        "weight": "high"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "rel-9a8c52277b94",
+      "type": "LED_BY",
+      "source": "wp.perf",
+      "target": "per.farrow",
+      "properties": {
+        "weight": "high"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "rel-49a244b88ef5",
+      "type": "LED_BY",
+      "source": "wp.weight",
+      "target": "per.voss",
+      "properties": {
+        "weight": "high"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "rel-f48600d4f0ec",
+      "type": "LED_BY",
+      "source": "wp.cert",
+      "target": "per.nakamura",
+      "properties": {
+        "weight": "high"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "rel-5ecfd283cd2a",
+      "type": "SUPPORTS",
+      "source": "wp.avionics",
+      "target": "obj.dmsms",
+      "properties": {
+        "contribution": "primary",
+        "weight": "high"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "rel-df20a8cabf42",
+      "type": "SUPPORTS",
+      "source": "wp.perf",
+      "target": "obj.fuelburn",
+      "properties": {
+        "contribution": "primary",
+        "weight": "high"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "rel-6f2718d6569a",
+      "type": "SUPPORTS",
+      "source": "wp.weight",
+      "target": "obj.fuelburn",
+      "properties": {
+        "contribution": "contributing",
+        "weight": "high"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "rel-63aec758b8dc",
+      "type": "SUPPORTS",
+      "source": "wp.cert",
+      "target": "obj.cert",
+      "properties": {
+        "contribution": "primary",
+        "weight": "high"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "rel-f9f06a57e045",
+      "type": "SUPPORTS",
+      "source": "wp.avionics",
+      "target": "obj.cost",
+      "properties": {
+        "contribution": "enabling",
+        "weight": "high"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "rel-1b9a7de51d23",
+      "type": "SUPPORTS",
+      "source": "wp.perf",
+      "target": "obj.cost",
+      "properties": {
+        "contribution": "enabling",
+        "weight": "high"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "rel-a17101487577",
+      "type": "SUPPORTS",
+      "source": "wp.weight",
+      "target": "obj.cost",
+      "properties": {
+        "contribution": "enabling",
+        "weight": "high"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "rel-682069b55725",
+      "type": "SUPPORTS",
+      "source": "wp.cert",
+      "target": "obj.cost",
+      "properties": {
+        "contribution": "enabling",
+        "weight": "high"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "rel-50d73c6078e3",
+      "type": "PART_OF",
+      "source": "sys.avionics",
+      "target": "sys.aircraft",
+      "properties": {
+        "weight": "high"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "rel-c3543f34658b",
+      "type": "PART_OF",
+      "source": "sys.propulsion",
+      "target": "sys.aircraft",
+      "properties": {
+        "weight": "high"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "rel-0b14026e7b0e",
+      "type": "PART_OF",
+      "source": "sys.structure",
+      "target": "sys.aircraft",
+      "properties": {
+        "weight": "high"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "rel-d314c8f8e162",
+      "type": "PART_OF",
+      "source": "sys.cabin",
+      "target": "sys.aircraft",
+      "properties": {
+        "weight": "high"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "rel-c7e64aa140c7",
+      "type": "PART_OF",
+      "source": "sys.iface",
+      "target": "sys.aircraft",
+      "properties": {
+        "weight": "high"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "rel-e04cc9266d64",
+      "type": "PART_OF",
+      "source": "sys.fmc",
+      "target": "sys.avionics",
+      "properties": {
+        "weight": "high"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "rel-9b93d83dffea",
+      "type": "PART_OF",
+      "source": "sys.nacelle",
+      "target": "sys.propulsion",
+      "properties": {
+        "weight": "high"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "rel-0fcb5f95dca3",
+      "type": "PART_OF",
+      "source": "sys.wingtip",
+      "target": "sys.structure",
+      "properties": {
+        "weight": "high"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "rel-c20b729130a6",
+      "type": "PART_OF",
+      "source": "sys.galley",
+      "target": "sys.cabin",
+      "properties": {
+        "weight": "high"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "rel-7ca220be6c43",
+      "type": "ALLOCATED_TO",
+      "source": "req.dmsms",
+      "target": "sys.fmc",
+      "properties": {
+        "weight": "high"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "rel-5d2136889f81",
+      "type": "ALLOCATED_TO",
+      "source": "req.fuelburn",
+      "target": "sys.propulsion",
+      "properties": {
+        "weight": "high"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "rel-72b7c3d5be13",
+      "type": "ALLOCATED_TO",
+      "source": "req.weight",
+      "target": "sys.structure",
+      "properties": {
+        "weight": "high"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "rel-e409b296afc6",
+      "type": "ALLOCATED_TO",
+      "source": "req.iface",
+      "target": "sys.iface",
+      "properties": {
+        "weight": "high"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "rel-147a000f08e5",
+      "type": "DERIVED_FROM",
+      "source": "req.dmsms",
+      "target": "obj.dmsms",
+      "properties": {
+        "weight": "high"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "rel-b35107c5581d",
+      "type": "DERIVED_FROM",
+      "source": "req.fuelburn",
+      "target": "obj.fuelburn",
+      "properties": {
+        "weight": "high"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "rel-c5a3c34bde1a",
+      "type": "DERIVED_FROM",
+      "source": "req.weight",
+      "target": "obj.fuelburn",
+      "properties": {
+        "weight": "high"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "rel-2d75b5636957",
+      "type": "DERIVED_FROM",
+      "source": "req.iface",
+      "target": "obj.cert",
+      "properties": {
+        "weight": "high"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "rel-3d640fdd5acc",
+      "type": "SATISFIES",
+      "source": "sys.fmc",
+      "target": "req.dmsms",
+      "properties": {
+        "weight": "high"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "rel-7950fac2bccb",
+      "type": "UNDERLIES",
+      "source": "asm.formfit",
+      "target": "risk.requal",
+      "properties": {
+        "weight": "high"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "rel-d2adf65cd0fc",
+      "type": "UNDERLIES",
+      "source": "asm.pipdata",
+      "target": "obj.fuelburn",
+      "properties": {
+        "weight": "high"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "rel-0862f6027052",
+      "type": "UNDERLIES",
+      "source": "asm.wiring",
+      "target": "req.iface",
+      "properties": {
+        "weight": "high"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "rel-f246ea4d68ed",
+      "type": "HAS_PARAMETER",
+      "source": "obj.fuelburn",
+      "target": "par.fuelburn",
+      "properties": {
+        "weight": "high"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "rel-5d3c44bc052b",
+      "type": "HAS_PARAMETER",
+      "source": "wp.weight",
+      "target": "par.weightbudget",
+      "properties": {
+        "weight": "high"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "rel-468ebd87d395",
+      "type": "HAS_PARAMETER",
+      "source": "wp.avionics",
+      "target": "par.dmsms_index",
+      "properties": {
+        "weight": "high"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "rel-0e5763d503ce",
+      "type": "HAS_PARAMETER",
+      "source": "obj.cost",
+      "target": "par.nrc",
+      "properties": {
+        "weight": "high"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "rel-b7a39504ccd3",
+      "type": "PARAMETER_LINK",
+      "source": "par.weightbudget",
+      "target": "par.fuelburn",
+      "properties": {
+        "weight": "high"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "rel-1254c8a844be",
+      "type": "PARAMETER_LINK",
+      "source": "par.nrc",
+      "target": "par.dmsms_index",
+      "properties": {
+        "weight": "high"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "rel-a2a3715952ad",
+      "type": "CONTAINS",
+      "source": "wp.avionics",
+      "target": "act.archbaseline",
+      "properties": {
+        "weight": "high"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "rel-3c340f067202",
+      "type": "RESPONSIBLE_FOR",
+      "source": "per.osei",
+      "target": "act.archbaseline",
+      "properties": {
+        "weight": "high"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "rel-894dc810accc",
+      "type": "DELIVERS_AT",
+      "source": "act.archbaseline",
+      "target": "ms.sdr",
+      "properties": {
+        "commitment": "committed",
+        "weight": "high"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "rel-29c8abb3b0cd",
+      "type": "SUPPORTS",
+      "source": "act.archbaseline",
+      "target": "obj.dmsms",
+      "properties": {
+        "contribution": "primary",
+        "weight": "high"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "rel-3dc3a5356f86",
+      "type": "SUPPORTS",
+      "source": "act.archbaseline",
+      "target": "obj.fuelburn",
+      "properties": {
+        "contribution": "primary",
+        "weight": "high"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "rel-715acef6f8b2",
+      "type": "SUPPORTS",
+      "source": "act.archbaseline",
+      "target": "obj.cert",
+      "properties": {
+        "contribution": "primary",
+        "weight": "high"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "rel-a1012ab3d65e",
+      "type": "IMPLEMENTS_PROCESS",
+      "source": "act.archbaseline",
+      "target": "proc.arch",
+      "properties": {
+        "weight": "high"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "rel-a80b775cdf28",
+      "type": "GOVERNED_BY",
+      "source": "act.archbaseline",
+      "target": "bp.reviewgate",
+      "properties": {
+        "weight": "high"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "rel-6a02fa84c004",
+      "type": "USES_METHOD",
+      "source": "act.archbaseline",
+      "target": "mth.interface",
+      "properties": {
+        "weight": "high"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "rel-863268349420",
+      "type": "USES_TOOL",
+      "source": "act.archbaseline",
+      "target": "tool.catia",
+      "properties": {
+        "usage": "primary",
+        "weight": "high"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "rel-bc773dc3668f",
+      "type": "ACCOUNTABLE_FOR",
+      "source": "per.hale",
+      "target": "act.archbaseline",
+      "properties": {
+        "weight": "high"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "rel-a524506779c9",
+      "type": "CONTAINS",
+      "source": "wp.avionics",
+      "target": "act.dmsms_survey",
+      "properties": {
+        "weight": "high"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "rel-55a88ffb6912",
+      "type": "RESPONSIBLE_FOR",
+      "source": "per.bianchi",
+      "target": "act.dmsms_survey",
+      "properties": {
+        "weight": "high"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "rel-218cf3a51958",
+      "type": "DELIVERS_AT",
+      "source": "act.dmsms_survey",
+      "target": "ms.sdr",
+      "properties": {
+        "commitment": "committed",
+        "weight": "high"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "rel-af8be708f1ba",
+      "type": "SUPPORTS",
+      "source": "act.dmsms_survey",
+      "target": "obj.dmsms",
+      "properties": {
+        "contribution": "primary",
+        "weight": "high"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "rel-908fbebf6b85",
+      "type": "IMPLEMENTS_PROCESS",
+      "source": "act.dmsms_survey",
+      "target": "proc.analysis",
+      "properties": {
+        "weight": "high"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "rel-c11617eff47e",
+      "type": "GOVERNED_BY",
+      "source": "act.dmsms_survey",
+      "target": "bp.config",
+      "properties": {
+        "weight": "high"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "rel-6c03d5f7886b",
+      "type": "USES_TOOL",
+      "source": "act.dmsms_survey",
+      "target": "tool.doors",
+      "properties": {
+        "usage": "primary",
+        "weight": "high"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "rel-018ce2e93035",
+      "type": "ACCOUNTABLE_FOR",
+      "source": "per.hale",
+      "target": "act.dmsms_survey",
+      "properties": {
+        "weight": "high"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "rel-15eed9d3aefb",
+      "type": "CONTAINS",
+      "source": "wp.avionics",
+      "target": "act.lru_redesign",
+      "properties": {
+        "weight": "high"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "rel-7b749eeddf65",
+      "type": "RESPONSIBLE_FOR",
+      "source": "per.bianchi",
+      "target": "act.lru_redesign",
+      "properties": {
+        "weight": "high"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "rel-69ffdc2ad540",
+      "type": "DELIVERS_AT",
+      "source": "act.lru_redesign",
+      "target": "ms.pdr",
+      "properties": {
+        "commitment": "committed",
+        "weight": "high"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "rel-366278adc246",
+      "type": "SUPPORTS",
+      "source": "act.lru_redesign",
+      "target": "obj.dmsms",
+      "properties": {
+        "contribution": "primary",
+        "weight": "high"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "rel-95fe430d6091",
+      "type": "IMPLEMENTS_PROCESS",
+      "source": "act.lru_redesign",
+      "target": "proc.arch",
+      "properties": {
+        "weight": "high"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "rel-e09f788dfa7d",
+      "type": "GOVERNED_BY",
+      "source": "act.lru_redesign",
+      "target": "bp.reviewgate",
+      "properties": {
+        "weight": "high"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "rel-93fd82579904",
+      "type": "USES_METHOD",
+      "source": "act.lru_redesign",
+      "target": "mth.interface",
+      "properties": {
+        "weight": "high"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "rel-20180ec6acbe",
+      "type": "USES_TOOL",
+      "source": "act.lru_redesign",
+      "target": "tool.catia",
+      "properties": {
+        "usage": "primary",
+        "weight": "high"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "rel-0eb59bea42e8",
+      "type": "ACCOUNTABLE_FOR",
+      "source": "per.hale",
+      "target": "act.lru_redesign",
+      "properties": {
+        "weight": "high"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "rel-42645154e14b",
+      "type": "CONTAINS",
+      "source": "wp.avionics",
+      "target": "act.iface_analysis",
+      "properties": {
+        "weight": "high"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "rel-0bb1013cbd75",
+      "type": "RESPONSIBLE_FOR",
+      "source": "per.osei",
+      "target": "act.iface_analysis",
+      "properties": {
+        "weight": "high"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "rel-57af0ec94e62",
+      "type": "DELIVERS_AT",
+      "source": "act.iface_analysis",
+      "target": "ms.pdr",
+      "properties": {
+        "commitment": "committed",
+        "weight": "high"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "rel-fd8a929eda97",
+      "type": "SUPPORTS",
+      "source": "act.iface_analysis",
+      "target": "obj.dmsms",
+      "properties": {
+        "contribution": "primary",
+        "weight": "high"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "rel-5ca96985f635",
+      "type": "SUPPORTS",
+      "source": "act.iface_analysis",
+      "target": "obj.cert",
+      "properties": {
+        "contribution": "primary",
+        "weight": "high"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "rel-3d64c18ae23b",
+      "type": "IMPLEMENTS_PROCESS",
+      "source": "act.iface_analysis",
+      "target": "proc.arch",
+      "properties": {
+        "weight": "high"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "rel-9e9aa2e3633d",
+      "type": "GOVERNED_BY",
+      "source": "act.iface_analysis",
+      "target": "bp.reviewgate",
+      "properties": {
+        "weight": "high"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "rel-87aede0b5a98",
+      "type": "USES_METHOD",
+      "source": "act.iface_analysis",
+      "target": "mth.interface",
+      "properties": {
+        "weight": "high"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "rel-538de18a5932",
+      "type": "USES_TOOL",
+      "source": "act.iface_analysis",
+      "target": "tool.catia",
+      "properties": {
+        "usage": "primary",
+        "weight": "high"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "rel-2398df3b484e",
+      "type": "ACCOUNTABLE_FOR",
+      "source": "per.hale",
+      "target": "act.iface_analysis",
+      "properties": {
+        "weight": "high"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "rel-dcee5eeb1179",
+      "type": "CONTAINS",
+      "source": "wp.perf",
+      "target": "act.perf_trade",
+      "properties": {
+        "weight": "high"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "rel-f1f4990f12a4",
+      "type": "RESPONSIBLE_FOR",
+      "source": "per.farrow",
+      "target": "act.perf_trade",
+      "properties": {
+        "weight": "high"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "rel-ed99bd5f4332",
+      "type": "DELIVERS_AT",
+      "source": "act.perf_trade",
+      "target": "ms.pdr",
+      "properties": {
+        "commitment": "committed",
+        "weight": "high"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "rel-426945829623",
+      "type": "SUPPORTS",
+      "source": "act.perf_trade",
+      "target": "obj.fuelburn",
+      "properties": {
+        "contribution": "primary",
+        "weight": "high"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "rel-ac38e4f0005c",
+      "type": "IMPLEMENTS_PROCESS",
+      "source": "act.perf_trade",
+      "target": "proc.analysis",
+      "properties": {
+        "weight": "high"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "rel-95a61ad28ca6",
+      "type": "GOVERNED_BY",
+      "source": "act.perf_trade",
+      "target": "bp.reviewgate",
+      "properties": {
+        "weight": "high"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "rel-177ac6ce84fc",
+      "type": "USES_METHOD",
+      "source": "act.perf_trade",
+      "target": "mth.perf",
+      "properties": {
+        "weight": "high"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "rel-7057839013ac",
+      "type": "USES_TOOL",
+      "source": "act.perf_trade",
+      "target": "tool.matlab",
+      "properties": {
+        "usage": "primary",
+        "weight": "high"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "rel-b3114519bbea",
+      "type": "ACCOUNTABLE_FOR",
+      "source": "per.hale",
+      "target": "act.perf_trade",
+      "properties": {
+        "weight": "high"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "rel-4b7e6af7f21f",
+      "type": "CONTAINS",
+      "source": "wp.perf",
+      "target": "act.perf_analysis",
+      "properties": {
+        "weight": "high"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "rel-e7d50e61b34d",
+      "type": "RESPONSIBLE_FOR",
+      "source": "per.farrow",
+      "target": "act.perf_analysis",
+      "properties": {
+        "weight": "high"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "rel-39e66592b178",
+      "type": "DELIVERS_AT",
+      "source": "act.perf_analysis",
+      "target": "ms.cdr",
+      "properties": {
+        "commitment": "committed",
+        "weight": "high"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "rel-92765921bce4",
+      "type": "SUPPORTS",
+      "source": "act.perf_analysis",
+      "target": "obj.fuelburn",
+      "properties": {
+        "contribution": "primary",
+        "weight": "high"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "rel-c6db5284ad0f",
+      "type": "IMPLEMENTS_PROCESS",
+      "source": "act.perf_analysis",
+      "target": "proc.analysis",
+      "properties": {
+        "weight": "high"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "rel-ed01b29d4dd3",
+      "type": "GOVERNED_BY",
+      "source": "act.perf_analysis",
+      "target": "bp.reviewgate",
+      "properties": {
+        "weight": "high"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "rel-56b1bac77bef",
+      "type": "USES_METHOD",
+      "source": "act.perf_analysis",
+      "target": "mth.perf",
+      "properties": {
+        "weight": "high"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "rel-a505ec53ce4a",
+      "type": "USES_TOOL",
+      "source": "act.perf_analysis",
+      "target": "tool.matlab",
+      "properties": {
+        "usage": "primary",
+        "weight": "high"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "rel-1bb026c9e063",
+      "type": "ACCOUNTABLE_FOR",
+      "source": "per.hale",
+      "target": "act.perf_analysis",
+      "properties": {
+        "weight": "high"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "rel-659d1e0565e2",
+      "type": "CONTAINS",
+      "source": "wp.weight",
+      "target": "act.weight_track",
+      "properties": {
+        "weight": "high"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "rel-ff94165f36fe",
+      "type": "RESPONSIBLE_FOR",
+      "source": "per.voss",
+      "target": "act.weight_track",
+      "properties": {
+        "weight": "high"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "rel-5c655c11b4e8",
+      "type": "DELIVERS_AT",
+      "source": "act.weight_track",
+      "target": "ms.pdr",
+      "properties": {
+        "commitment": "committed",
+        "weight": "high"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "rel-620565c93841",
+      "type": "SUPPORTS",
+      "source": "act.weight_track",
+      "target": "obj.fuelburn",
+      "properties": {
+        "contribution": "primary",
+        "weight": "high"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "rel-1d77a648d7e8",
+      "type": "SUPPORTS",
+      "source": "act.weight_track",
+      "target": "obj.cost",
+      "properties": {
+        "contribution": "primary",
+        "weight": "high"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "rel-742596110395",
+      "type": "IMPLEMENTS_PROCESS",
+      "source": "act.weight_track",
+      "target": "proc.analysis",
+      "properties": {
+        "weight": "high"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "rel-3d9ecd8c4393",
+      "type": "GOVERNED_BY",
+      "source": "act.weight_track",
+      "target": "bp.config",
+      "properties": {
+        "weight": "high"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "rel-ce9cdac15005",
+      "type": "USES_METHOD",
+      "source": "act.weight_track",
+      "target": "mth.weight",
+      "properties": {
+        "weight": "high"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "rel-b150d657b61a",
+      "type": "USES_TOOL",
+      "source": "act.weight_track",
+      "target": "tool.matlab",
+      "properties": {
+        "usage": "primary",
+        "weight": "high"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "rel-60d6dbcdd9ae",
+      "type": "ACCOUNTABLE_FOR",
+      "source": "per.hale",
+      "target": "act.weight_track",
+      "properties": {
+        "weight": "high"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "rel-a307b3c85eca",
+      "type": "CONTAINS",
+      "source": "wp.weight",
+      "target": "act.cabin_redesign",
+      "properties": {
+        "weight": "high"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "rel-41f737fc8d6c",
+      "type": "RESPONSIBLE_FOR",
+      "source": "per.voss",
+      "target": "act.cabin_redesign",
+      "properties": {
+        "weight": "high"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "rel-0d4372b0c883",
+      "type": "DELIVERS_AT",
+      "source": "act.cabin_redesign",
+      "target": "ms.cdr",
+      "properties": {
+        "commitment": "committed",
+        "weight": "high"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "rel-3ad84c921e16",
+      "type": "SUPPORTS",
+      "source": "act.cabin_redesign",
+      "target": "obj.fuelburn",
+      "properties": {
+        "contribution": "primary",
+        "weight": "high"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "rel-73657ae047ca",
+      "type": "IMPLEMENTS_PROCESS",
+      "source": "act.cabin_redesign",
+      "target": "proc.arch",
+      "properties": {
+        "weight": "high"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "rel-cc0b0d108fc3",
+      "type": "GOVERNED_BY",
+      "source": "act.cabin_redesign",
+      "target": "bp.reviewgate",
+      "properties": {
+        "weight": "high"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "rel-c8adb4690b7a",
+      "type": "USES_METHOD",
+      "source": "act.cabin_redesign",
+      "target": "mth.weight",
+      "properties": {
+        "weight": "high"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "rel-4de6245d161c",
+      "type": "USES_TOOL",
+      "source": "act.cabin_redesign",
+      "target": "tool.catia",
+      "properties": {
+        "usage": "primary",
+        "weight": "high"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "rel-acc69a0d7a59",
+      "type": "ACCOUNTABLE_FOR",
+      "source": "per.hale",
+      "target": "act.cabin_redesign",
+      "properties": {
+        "weight": "high"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "rel-371a28e24e3e",
+      "type": "CONTAINS",
+      "source": "wp.cert",
+      "target": "act.certbasis",
+      "properties": {
+        "weight": "high"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "rel-6e693f20eee3",
+      "type": "RESPONSIBLE_FOR",
+      "source": "per.nakamura",
+      "target": "act.certbasis",
+      "properties": {
+        "weight": "high"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "rel-79fb14ede76b",
+      "type": "DELIVERS_AT",
+      "source": "act.certbasis",
+      "target": "ms.pdr",
+      "properties": {
+        "commitment": "committed",
+        "weight": "high"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "rel-961c37e4b472",
+      "type": "SUPPORTS",
+      "source": "act.certbasis",
+      "target": "obj.cert",
+      "properties": {
+        "contribution": "primary",
+        "weight": "high"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "rel-7f5213e5bc03",
+      "type": "IMPLEMENTS_PROCESS",
+      "source": "act.certbasis",
+      "target": "proc.reqmgmt",
+      "properties": {
+        "weight": "high"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "rel-1e065919ff0d",
+      "type": "GOVERNED_BY",
+      "source": "act.certbasis",
+      "target": "bp.reviewgate",
+      "properties": {
+        "weight": "high"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "rel-8ac94c750f44",
+      "type": "USES_TOOL",
+      "source": "act.certbasis",
+      "target": "tool.doors",
+      "properties": {
+        "usage": "primary",
+        "weight": "high"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "rel-2acc4b87652c",
+      "type": "ACCOUNTABLE_FOR",
+      "source": "per.hale",
+      "target": "act.certbasis",
+      "properties": {
+        "weight": "high"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "rel-73d9b11db700",
+      "type": "CONTAINS",
+      "source": "wp.cert",
+      "target": "act.vplan",
+      "properties": {
+        "weight": "high"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "rel-39b587c1731a",
+      "type": "RESPONSIBLE_FOR",
+      "source": "per.nakamura",
+      "target": "act.vplan",
+      "properties": {
+        "weight": "high"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "rel-56cdf3513748",
+      "type": "DELIVERS_AT",
+      "source": "act.vplan",
+      "target": "ms.cdr",
+      "properties": {
+        "commitment": "committed",
+        "weight": "high"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "rel-b6b1b3319492",
+      "type": "SUPPORTS",
+      "source": "act.vplan",
+      "target": "obj.cert",
+      "properties": {
+        "contribution": "primary",
+        "weight": "high"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "rel-578217d8bd7f",
+      "type": "IMPLEMENTS_PROCESS",
+      "source": "act.vplan",
+      "target": "proc.verification",
+      "properties": {
+        "weight": "high"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "rel-aa226fbf4ca6",
+      "type": "GOVERNED_BY",
+      "source": "act.vplan",
+      "target": "bp.reviewgate",
+      "properties": {
+        "weight": "high"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "rel-3378e2d79d01",
+      "type": "USES_TOOL",
+      "source": "act.vplan",
+      "target": "tool.doors",
+      "properties": {
+        "usage": "primary",
+        "weight": "high"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "rel-a0333fa89082",
+      "type": "ACCOUNTABLE_FOR",
+      "source": "per.hale",
+      "target": "act.vplan",
+      "properties": {
+        "weight": "high"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "rel-2a2732e932e0",
+      "type": "CONTAINS",
+      "source": "wp.cert",
+      "target": "act.fmeca",
+      "properties": {
+        "weight": "high"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "rel-5021198f8f74",
+      "type": "RESPONSIBLE_FOR",
+      "source": "per.reyes",
+      "target": "act.fmeca",
+      "properties": {
+        "weight": "high"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "rel-dc65f4daf542",
+      "type": "DELIVERS_AT",
+      "source": "act.fmeca",
+      "target": "ms.cdr",
+      "properties": {
+        "commitment": "committed",
+        "weight": "high"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "rel-5e46b4bac2ea",
+      "type": "SUPPORTS",
+      "source": "act.fmeca",
+      "target": "obj.cert",
+      "properties": {
+        "contribution": "primary",
+        "weight": "high"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "rel-fc4a012c2cd8",
+      "type": "IMPLEMENTS_PROCESS",
+      "source": "act.fmeca",
+      "target": "proc.safety",
+      "properties": {
+        "weight": "high"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "rel-bf3a6cf290ef",
+      "type": "GOVERNED_BY",
+      "source": "act.fmeca",
+      "target": "bp.reviewgate",
+      "properties": {
+        "weight": "high"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "rel-1f5324ec51d4",
+      "type": "USES_TOOL",
+      "source": "act.fmeca",
+      "target": "tool.matlab",
+      "properties": {
+        "usage": "primary",
+        "weight": "high"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "rel-639c850636c7",
+      "type": "ACCOUNTABLE_FOR",
+      "source": "per.hale",
+      "target": "act.fmeca",
+      "properties": {
+        "weight": "high"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "rel-4ab30ceddfa4",
+      "type": "CONTAINS",
+      "source": "wp.cert",
+      "target": "act.groundtest",
+      "properties": {
+        "weight": "high"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "rel-3e2f0baf3b5f",
+      "type": "RESPONSIBLE_FOR",
+      "source": "per.nakamura",
+      "target": "act.groundtest",
+      "properties": {
+        "weight": "high"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "rel-f4889214f848",
+      "type": "DELIVERS_AT",
+      "source": "act.groundtest",
+      "target": "ms.trr",
+      "properties": {
+        "commitment": "committed",
+        "weight": "high"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "rel-f82a51aed0f7",
+      "type": "SUPPORTS",
+      "source": "act.groundtest",
+      "target": "obj.cert",
+      "properties": {
+        "contribution": "primary",
+        "weight": "high"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "rel-d12eec7d0a0d",
+      "type": "SUPPORTS",
+      "source": "act.groundtest",
+      "target": "obj.fuelburn",
+      "properties": {
+        "contribution": "primary",
+        "weight": "high"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "rel-099f42e891d1",
+      "type": "IMPLEMENTS_PROCESS",
+      "source": "act.groundtest",
+      "target": "proc.verification",
+      "properties": {
+        "weight": "high"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "rel-700e87848331",
+      "type": "GOVERNED_BY",
+      "source": "act.groundtest",
+      "target": "bp.reviewgate",
+      "properties": {
+        "weight": "high"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "rel-06265bfb3fe7",
+      "type": "ACCOUNTABLE_FOR",
+      "source": "per.hale",
+      "target": "act.groundtest",
+      "properties": {
+        "weight": "high"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "rel-dea895a7741b",
+      "type": "PRODUCES",
+      "source": "act.archbaseline",
+      "target": "del.oad",
+      "properties": {
+        "weight": "high"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "rel-5aabed350dcc",
+      "type": "DELIVERS_AT",
+      "source": "del.oad",
+      "target": "ms.sdr",
+      "properties": {
+        "commitment": "committed",
+        "weight": "high"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "rel-f7fd2f882fd4",
+      "type": "PRODUCES",
+      "source": "act.archbaseline",
+      "target": "del.opd",
+      "properties": {
+        "weight": "high"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "rel-79f04a30604f",
+      "type": "DELIVERS_AT",
+      "source": "del.opd",
+      "target": "ms.sdr",
+      "properties": {
+        "commitment": "committed",
+        "weight": "high"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "rel-5874f86f94c3",
+      "type": "PRODUCES",
+      "source": "act.archbaseline",
+      "target": "del.osd",
+      "properties": {
+        "weight": "high"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "rel-f27293770f12",
+      "type": "DELIVERS_AT",
+      "source": "del.osd",
+      "target": "ms.sdr",
+      "properties": {
+        "commitment": "committed",
+        "weight": "high"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "rel-bfb017fe758a",
+      "type": "PRODUCES",
+      "source": "act.dmsms_survey",
+      "target": "del.dmsms_report",
+      "properties": {
+        "weight": "high"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "rel-caafdb654565",
+      "type": "DELIVERS_AT",
+      "source": "del.dmsms_report",
+      "target": "ms.sdr",
+      "properties": {
+        "commitment": "committed",
+        "weight": "high"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "rel-bb4a637e8283",
+      "type": "PRODUCES",
+      "source": "act.perf_analysis",
+      "target": "del.perf_report",
+      "properties": {
+        "weight": "high"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "rel-208d81e7f16e",
+      "type": "DELIVERS_AT",
+      "source": "del.perf_report",
+      "target": "ms.cdr",
+      "properties": {
+        "commitment": "committed",
+        "weight": "high"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "rel-3ad1ba33798c",
+      "type": "PRODUCES",
+      "source": "act.vplan",
+      "target": "del.certdata",
+      "properties": {
+        "weight": "high"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "rel-a823a849d0ac",
+      "type": "DELIVERS_AT",
+      "source": "del.certdata",
+      "target": "ms.trr",
+      "properties": {
+        "commitment": "committed",
+        "weight": "high"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "rel-c71e95093a50",
+      "type": "PRODUCES",
+      "source": "act.weight_track",
+      "target": "del.wnb",
+      "properties": {
+        "weight": "high"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "rel-2a4fd4ccaffb",
+      "type": "DELIVERS_AT",
+      "source": "del.wnb",
+      "target": "ms.cdr",
+      "properties": {
+        "commitment": "committed",
+        "weight": "high"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "rel-6f66aa1b4e4b",
+      "type": "APPLIES_TO",
+      "source": "del.oad",
+      "target": "sys.aircraft",
+      "properties": {
+        "weight": "high"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "rel-9b39befe1648",
+      "type": "APPLIES_TO",
+      "source": "del.opd",
+      "target": "sys.propulsion",
+      "properties": {
+        "weight": "high"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "rel-523edf1acaf0",
+      "type": "APPLIES_TO",
+      "source": "del.osd",
+      "target": "sys.avionics",
+      "properties": {
+        "weight": "high"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "rel-fcce5e10e0e6",
+      "type": "APPLIES_TO",
+      "source": "del.osd",
+      "target": "sys.iface",
+      "properties": {
+        "weight": "high"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "rel-12af38cdb589",
+      "type": "DEPENDS_ON",
+      "source": "act.groundtest",
+      "target": "act.lru_redesign",
+      "properties": {
+        "dependency_type": "finish_to_start",
+        "weight": "high"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "rel-c0ec40d58c75",
+      "type": "DEPENDS_ON",
+      "source": "act.groundtest",
+      "target": "act.perf_analysis",
+      "properties": {
+        "dependency_type": "finish_to_start",
+        "weight": "high"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "rel-b4309e81f793",
+      "type": "DEPENDS_ON",
+      "source": "act.iface_analysis",
+      "target": "act.lru_redesign",
+      "properties": {
+        "dependency_type": "finish_to_start",
+        "weight": "high"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "rel-2707e4c630e2",
+      "type": "DEPENDS_ON",
+      "source": "act.cabin_redesign",
+      "target": "act.weight_track",
+      "properties": {
+        "dependency_type": "finish_to_start",
+        "weight": "high"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "rel-1e6b1551f16a",
+      "type": "MITIGATES",
+      "source": "act.lru_redesign",
+      "target": "risk.supplier",
+      "properties": {
+        "weight": "high"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "rel-053f73ae9bf1",
+      "type": "MITIGATES",
+      "source": "act.dmsms_survey",
+      "target": "risk.requal",
+      "properties": {
+        "weight": "high"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "rel-d722739d7965",
+      "type": "MITIGATES",
+      "source": "act.weight_track",
+      "target": "risk.weightgrowth",
+      "properties": {
+        "weight": "high"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "rel-fde4842b8cd9",
+      "type": "VERIFIES",
+      "source": "act.iface_analysis",
+      "target": "req.iface",
+      "properties": {
+        "weight": "high"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "rel-47b9f1bf3ef2",
+      "type": "VERIFIES",
+      "source": "act.perf_analysis",
+      "target": "req.fuelburn",
+      "properties": {
+        "weight": "high"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "rel-58f989334c40",
+      "type": "VERIFIES",
+      "source": "act.lru_redesign",
+      "target": "req.dmsms",
+      "properties": {
+        "weight": "high"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    },
+    {
+      "id": "rel-21a0de52f8bb",
+      "type": "VERIFIES",
+      "source": "act.cabin_redesign",
+      "target": "req.weight",
+      "properties": {
+        "weight": "high"
+      },
+      "provenance": {
+        "created_at": "2026-09-22T02:18:59Z",
+        "created_by": "demo",
+        "updated_at": "2026-09-22T02:18:59Z",
+        "updated_by": "demo",
+        "revision": 1,
+        "source": "demo"
+      }
+    }
+  ]
+}
