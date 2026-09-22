@@ -59,6 +59,12 @@ filesystem it is easy to `cd` one folder too far, into `setm/` itself, where
 `No module named setm` is the result. Installing removes that trap entirely:
 both `setm` and `python -m setm` then work from anywhere.
 
+**Pulled a change but don't see it?** Run `setm info` and check the `code` line at the top: it
+should point at this checkout. If it points into a `site-packages` copy instead, `setm info` says
+so directly -- `git pull` in a checkout never reaches an installed copy elsewhere. Reinstall with
+`pip install -e .` from the checkout, then hard-refresh the browser tab (the app is served fresh
+per request, but the browser may still be holding an old cached copy of the JS).
+
 The demo is a Phase B satellite payload programme: 4 objectives, 5 gates,
 4 work packages, 13 activities, a 7-tool engineering chain, requirements, risks
 and processes, all linked.
@@ -66,12 +72,15 @@ and processes, all linked.
 A second worked example ships too: a complex in-service aircraft modification
 programme (obsolescence redesign and a performance retrofit, sharing an
 architecture baseline of OAD/OPD/OSD deliverables and a real system-element
-breakdown). Build it fresh with `setm demo --example modification`, or import
-the ready-made file directly:
+breakdown). Build it fresh with `setm demo --example modification`, import the ready-made file
+directly:
 
 ```bash
 setm import examples/modification-programme.json
 ```
+
+or load it without leaving the browser: open **Settings** in the running app and use the
+"Worked examples" card.
 
 ### Where the graph lives
 

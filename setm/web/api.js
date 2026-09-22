@@ -76,6 +76,9 @@ export const api = {
   reopenWorkspace: (force) => request('POST', '/api/settings/reopen', { body: { force } }),
   testStorage: (body) => request('POST', '/api/settings/test-storage', { body }),
 
+  examples: () => request('GET', '/api/examples'),
+  loadExample: (name) => request('POST', '/api/examples/load', { body: { name } }),
+
   kpi: (section) => request('GET', '/api/kpi', { query: { section } }),
   appKpi: () => request('GET', '/api/kpi/app'),
   validate: () => request('GET', '/api/validate'),

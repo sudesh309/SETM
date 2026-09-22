@@ -693,7 +693,8 @@ async function switchView(view) {
 }
 
 async function showSettings(status = '') {
-  const data = await api.settings();
+  const [data, examples] = await Promise.all([api.settings(), api.examples()]);
+  data.examples = examples.examples;
   renderSettings(el('settings-body'), data, {
     onSave: async (payload) => {
       const result = await api.updateSettings(payload);
@@ -707,6 +708,7 @@ async function showSettings(status = '') {
     onReload: async (message) => { await refreshAll(); await showSettings(message); },
     onTestStorage: (payload) => api.testStorage(payload),
     onOfferReopen: (result) => confirmReopen(result),
+    onLoadExample: (name) => confirmLoadExample(name),
   }, status);
 }
 
@@ -747,6 +749,28 @@ function confirmReopen(result) {
     await selectNode(null);
     await showSettings();
   }, { confirmLabel: 'Re-open' });
+}
+
+/** Loading an example replaces the whole current graph, so confirm first if there's unsaved work. */
+async function confirmLoadExample(name) {
+  const proceed = async () => {
+    const result = await api.loadExample(name);
+    toast(`Loaded example: ${result.nodes} elements, ${result.edges} relations`, 'success');
+    await refreshAll();
+    await selectNode(null);
+    await switchView('graph');
+  };
+
+  if (!state.dirty) {
+    await proceed();
+    return;
+  }
+
+  const body = h('div', {}, [
+    h('p', { text: 'This replaces everything in the current project.' }),
+    h('p', { class: 'setting-warn', text: 'There are unsaved changes that will be lost.' }),
+  ]);
+  openModal('Load example?', body, proceed, { confirmLabel: 'Load, discard changes' });
 }
 
 async function openFromPage(id) {
