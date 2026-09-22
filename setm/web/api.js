@@ -78,6 +78,7 @@ export const api = {
 
   examples: () => request('GET', '/api/examples'),
   loadExample: (name) => request('POST', '/api/examples/load', { body: { name } }),
+  importDocument: (document, merge) => request('POST', '/api/import', { body: { document, merge } }),
 
   kpi: (section) => request('GET', '/api/kpi', { query: { section } }),
   appKpi: () => request('GET', '/api/kpi/app'),

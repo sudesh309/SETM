@@ -661,15 +661,18 @@ async function switchView(view) {
         fetchTrace: (id) => api.trace(id, 1),
       });
     } else if (view === 'kpi') {
-      renderKpis(el('kpi-body'), await api.kpi('report'), openFromPage);
+      renderKpis(el('kpi-body'), await api.kpi('report'), pageActions(null));
     } else if (view === 'ontology') {
-      renderOntology(el('ontology-body'), state.ontology, async () => {
-        const result = await api.reloadOntology();
-        state.ontology = result.ontology;
-        buildFilters();
-        applyFilters();
-        renderOntology(el('ontology-body'), state.ontology, () => switchView('ontology'));
-        toast('Ontology reloaded', 'success');
+      renderOntology(el('ontology-body'), state.ontology, {
+        onNew: (typeName) => openNodeDialog(null, typeName),
+        onReload: async () => {
+          const result = await api.reloadOntology();
+          state.ontology = result.ontology;
+          buildFilters();
+          applyFilters();
+          await switchView('ontology');
+          toast('Ontology reloaded', 'success');
+        },
       });
     } else if (view === 'settings') {
       await showSettings();
@@ -709,6 +712,7 @@ async function showSettings(status = '') {
     onTestStorage: (payload) => api.testStorage(payload),
     onOfferReopen: (result) => confirmReopen(result),
     onLoadExample: (name) => confirmLoadExample(name),
+    onLoadJson: (text, merge, filename) => confirmLoadJson(text, merge, filename),
   }, status);
 }
 
@@ -771,6 +775,41 @@ async function confirmLoadExample(name) {
     h('p', { class: 'setting-warn', text: 'There are unsaved changes that will be lost.' }),
   ]);
   openModal('Load example?', body, proceed, { confirmLabel: 'Load, discard changes' });
+}
+
+/** Load a JSON graph file the user picked in Settings. */
+async function confirmLoadJson(text, merge, filename) {
+  let document;
+  try {
+    document = JSON.parse(text);
+  } catch (error) {
+    toast(`${filename} is not valid JSON: ${error.message}`, 'error');
+    return;
+  }
+
+  const proceed = async () => {
+    try {
+      const result = await api.importDocument(document, merge);
+      toast(`Loaded ${filename}: ${result.nodes} elements, ${result.edges} relations`, 'success');
+      await refreshAll();
+      await selectNode(null);
+      await switchView('graph');
+    } catch (error) {
+      toast(error.message, 'error');
+    }
+  };
+
+  // Merging keeps what is already there, so only a replace needs the warning.
+  if (merge || !state.dirty) {
+    await proceed();
+    return;
+  }
+
+  const body = h('div', {}, [
+    h('p', { text: `Loading ${filename} replaces everything in the current project.` }),
+    h('p', { class: 'setting-warn', text: 'There are unsaved changes that will be lost.' }),
+  ]);
+  openModal('Load project file?', body, proceed, { confirmLabel: 'Load, discard changes' });
 }
 
 async function openFromPage(id) {
