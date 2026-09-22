@@ -15,6 +15,7 @@ from typing import Any, Callable, Iterable
 
 from ..config import FIELDS_BY_NAME, SECRET_PLACEHOLDER
 from ..errors import ConfigError, NotFoundError, SetmError, ValidationError
+from ..examples import EXAMPLES
 from ..graph import query
 from ..graph._fastpath import degree_centrality
 from ..kpi.metrics import KPI_CATALOGUE, compute_kpis
@@ -738,6 +739,28 @@ def import_graph(workspace: Workspace, request: Request) -> Response:
         raise ValidationError("Send either 'document' (JSON graph) or 'turtle' (Turtle text)")
     result = workspace.import_document(document, merge=merge, actor=request.actor or workspace.settings.actor)
     workspace.autosave("import graph", request.actor or workspace.settings.actor)
+    return Response(body={**result, "validation": workspace.validate()})
+
+
+@router.route("GET", "/api/examples")
+def list_examples(workspace: Workspace, request: Request) -> Response:
+    """The worked examples that ship with SETM, for the Settings page's loader."""
+    return Response(body={"examples": [
+        {"name": name, "label": spec["label"], "description": spec["description"]}
+        for name, spec in EXAMPLES.items()
+    ]})
+
+
+@router.route("POST", "/api/examples/load")
+def load_example(workspace: Workspace, request: Request) -> Response:
+    """Replace the current graph with a freshly-built worked example."""
+    body = request.json_body()
+    name = str(body.get("name") or "")
+    if name not in EXAMPLES:
+        raise ValidationError(f"Unknown example '{name}'. Try: {', '.join(EXAMPLES)}")
+    document = EXAMPLES[name]["build"](workspace.ontology)
+    result = workspace.import_document(document, merge=False, actor=request.actor or workspace.settings.actor)
+    workspace.autosave(f"load example: {name}", request.actor or workspace.settings.actor)
     return Response(body={**result, "validation": workspace.validate()})
 
 

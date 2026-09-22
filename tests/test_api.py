@@ -271,3 +271,28 @@ def test_allowed_edges_offers_tool_relations(demo_workspace):
     uses_tool = next(e for e in response.body["edge_types"] if e["name"] == "USES_TOOL")
     assert uses_tool["valid_targets"] == ["Tool"]
     assert uses_tool["question"] == "how"
+
+
+def test_examples_lists_both_worked_examples(workspace):
+    names = {item["name"] for item in call(workspace, "GET", "/api/examples").body["examples"]}
+    assert names == {"payload", "modification"}
+
+
+def test_loading_an_example_replaces_the_graph(workspace):
+    from setm.modification_demo import build_modification_demo
+
+    expected = build_modification_demo(workspace.ontology)
+
+    response = call(workspace, "POST", "/api/examples/load", {"name": "modification"})
+    assert response.status == 200
+    assert response.body["nodes"] == len(expected.nodes)
+    assert response.body["edges"] == len(expected.edges)
+    assert response.body["validation"]["valid"] is True
+
+    health = call(workspace, "GET", "/api/health")
+    assert health.body["graph"]["nodes"] == len(expected.nodes)
+
+
+def test_loading_an_unknown_example_is_rejected(workspace):
+    response = call(workspace, "POST", "/api/examples/load", {"name": "nope"})
+    assert response.status == 422

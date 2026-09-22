@@ -631,6 +631,41 @@ export function renderSettings(container, data, actions, initialStatus = '') {
   }
   page.append(configCard);
 
+  if (data.examples?.length) {
+    const examplesCard = h('div', { class: 'card' });
+    examplesCard.append(h('div', { class: 'card-head' }, [
+      h('h3', { text: 'Worked examples' }),
+    ]));
+    examplesCard.append(h('p', { class: 'setting-help' }, [
+      'Replaces everything in the current project with one of the examples that ship with SETM. '
+      + 'Save first if you want to keep what is here now.',
+    ]));
+    for (const example of data.examples) {
+      const row = h('div', {
+        style: 'display:flex;align-items:center;gap:14px;padding:11px 0;border-top:1px solid var(--border)',
+      }, [
+        h('div', { style: 'flex:1' }, [
+          h('div', { text: example.label }),
+          h('div', { class: 'setting-help', text: example.description }),
+        ]),
+        h('button', {
+          class: 'btn',
+          text: 'Load',
+          onClick: async (event) => {
+            event.target.disabled = true;
+            try {
+              await actions.onLoadExample(example.name);
+            } finally {
+              event.target.disabled = false;
+            }
+          },
+        }),
+      ]);
+      examplesCard.append(row);
+    }
+    page.append(examplesCard);
+  }
+
   // One card per group, in the order the API listed them.
   const groups = [];
   for (const field of data.fields) {

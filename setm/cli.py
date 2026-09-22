@@ -17,6 +17,7 @@ from typing import Any
 from . import __version__
 from .config import FIELD_SPECS, FIELDS_BY_NAME, SECRET_PLACEHOLDER, Settings
 from .errors import SetmError
+from .examples import EXAMPLES
 from .kpi.metrics import compute_kpis
 from .model import GraphDocument
 from .ontology.loader import _as_source, load_ontology, resolve_ontology_path
@@ -103,9 +104,10 @@ def build_parser() -> argparse.ArgumentParser:
     demo.add_argument(
         "--example",
         default="payload",
-        choices=["payload", "modification"],
-        help="which worked example to build: 'payload' (new-development satellite payload, default) "
-             "or 'modification' (in-service aircraft modification programme)",
+        choices=list(EXAMPLES),
+        help="which worked example to build (default: payload). " + "; ".join(
+            f"'{name}': {spec['label']}" for name, spec in EXAMPLES.items()
+        ),
     )
 
     add("info", "show workspace, storage and ontology status")
@@ -208,11 +210,7 @@ def cmd_init(args: argparse.Namespace) -> int:
 
 
 def cmd_demo(args: argparse.Namespace) -> int:
-    from .demo import build_demo
-    from .modification_demo import build_modification_demo
-
-    builders = {"payload": build_demo, "modification": build_modification_demo}
-    build = builders[getattr(args, "example", "payload")]
+    build = EXAMPLES[getattr(args, "example", "payload")]["build"]
 
     settings = _settings_from_args(args)
     load_builtin_backends()
@@ -233,6 +231,17 @@ def cmd_demo(args: argparse.Namespace) -> int:
 
 
 def cmd_info(args: argparse.Namespace) -> int:
+    import importlib.util
+
+    spec = importlib.util.find_spec("setm")
+    if spec and spec.origin:
+        package_root = Path(spec.origin).resolve().parent
+        note = ""
+        if "site-packages" in package_root.parts:
+            note = _colour("  (a site-packages copy - `git pull` in a checkout won't reach this; "
+                            "reinstall with `pip install -e .` from the checkout to fix)", YELLOW)
+        print(f"{BOLD}code{RESET}      {package_root}{note}")
+
     workspace = Workspace.open(_settings_from_args(args))
     health = workspace.health()
     print(f"{BOLD}project{RESET}   {workspace.store.project.name} ({workspace.store.project.programme or 'no programme'})")
