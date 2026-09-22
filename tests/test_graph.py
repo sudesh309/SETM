@@ -61,6 +61,16 @@ def test_cardinality_one_owner_per_activity(empty_store):
         empty_store.add_edge("RESPONSIBLE_FOR", "p2", "a1")
 
 
+def test_parameter_link_only_connects_parameters(empty_store):
+    empty_store.add_node("Parameter", {"name": "GSD"}, node_id="par1")
+    empty_store.add_node("Parameter", {"name": "Mass budget"}, node_id="par2")
+    empty_store.add_edge("PARAMETER_LINK", "par1", "par2")  # does not raise
+
+    add_activity(empty_store, node_id="a1")
+    with pytest.raises(ValidationError, match="cannot start"):
+        empty_store.add_edge("PARAMETER_LINK", "a1", "par2")
+
+
 def test_duplicate_relation_is_rejected(empty_store):
     empty_store.add_node("Person", {"name": "A"}, node_id="p1")
     add_activity(empty_store, node_id="a1")

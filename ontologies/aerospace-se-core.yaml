@@ -7,10 +7,10 @@
 # validator, the RDF/OWL export and the KPI engine all follow immediately.
 #
 # Structure of the vocabulary, in the terms a chief engineer actually asks:
-#   WHAT  - Activity, Deliverable, Requirement, SystemElement
+#   WHAT  - Activity, Deliverable, Requirement, SystemElement, Parameter
 #   WHO   - Person, Organisation, WorkPackage
 #   WHEN  - Milestone  (programme gates, never calendar dates)
-#   WHY   - Objective, Requirement, Risk
+#   WHY   - Objective, Requirement, Risk, Assumption
 #   HOW   - SEProcess, BusinessProcess, Method, Tool
 # ---------------------------------------------------------------------------
 
@@ -132,6 +132,7 @@ node_types:
     color: "#b91c1c"
     shape: diamond
     description: A programme or technical risk that systems engineering work is meant to retire.
+    include_properties: [lifecycle]
     properties:
       likelihood:
         type: integer
@@ -152,6 +153,30 @@ node_types:
         label: Risk status
         group: Assessment
         values: [open, mitigating, retired, accepted]
+        default: open
+
+  Assumption:
+    extends: Thing
+    label: Assumption
+    category: Why
+    color: "#ea580c"
+    shape: diamond
+    description: >-
+      A statement taken as true without proof because verifying it now would
+      cost more than the project can spend. If it turns out false, everything
+      that was built on it needs re-checking.
+    include_properties: [lifecycle]
+    properties:
+      confidence:
+        type: enum
+        label: Confidence
+        group: Assessment
+        values: [low, medium, high]
+        default: medium
+      validation_method:
+        type: string
+        label: How this will be confirmed
+        group: Assessment
         default: open
 
   Requirement:
@@ -279,6 +304,32 @@ node_types:
         type: string
         label: PBS code
         group: Identity
+
+  Parameter:
+    extends: Thing
+    label: Parameter
+    category: What
+    color: "#0d9488"
+    shape: rectangle
+    description: >-
+      A named, typed characteristic of an element - a functional budget, a
+      business constraint, a performance figure - that can be traded off
+      against other parameters independently of the elements that carry it.
+    properties:
+      parameter_type:
+        type: enum
+        label: Parameter type
+        group: Classification
+        values: [functional, business, performance, interface, safety, cost, schedule]
+        default: functional
+      value:
+        type: string
+        label: Value
+        group: Classification
+      unit:
+        type: string
+        label: Unit
+        group: Classification
 
   # -- WHO ------------------------------------------------------------------
   Person:
@@ -641,6 +692,17 @@ edge_types:
     range: [Risk]
     color: "#b91c1c"
 
+  UNDERLIES:
+    label: underlies
+    inverse_label: rests on
+    question: why
+    domain: [Assumption]
+    range: [Objective, Requirement, Risk, Activity, WorkPackage]
+    color: "#ea580c"
+    description: >-
+      The rationale this assumption feeds. If the assumption turns out false,
+      everything reached through this edge needs re-checking.
+
   VERIFIES:
     label: verifies
     inverse_label: is verified by
@@ -790,6 +852,27 @@ edge_types:
     cardinality: many_to_one
     color: "#115e59"
 
+  HAS_PARAMETER:
+    label: has parameter
+    inverse_label: characterises
+    question: what
+    domain: [Activity, Requirement, Objective, Deliverable, SystemElement, WorkPackage, Tool]
+    range: [Parameter]
+    color: "#0d9488"
+    description: Attaches a named, typed characteristic to whichever element carries it.
+
+  PARAMETER_LINK:
+    label: relates to parameter
+    question: what
+    domain: [Parameter]
+    range: [Parameter]
+    color: "#5eead4"
+    style: dashed
+    description: >-
+      A relationship between two parameters only, independent of the elements
+      that carry them - e.g. a business budget trading off against a
+      functional one.
+
 # Named chains the UI offers as one-click traceability questions.
 # A '~' prefix walks that step backwards.
 trace_paths:
@@ -802,6 +885,8 @@ trace_paths:
   process_to_deliverables: [~IMPLEMENTS_PROCESS, PRODUCES]
   requirement_to_verification: [~VERIFIES]
   work_package_to_milestones: [CONTAINS, DELIVERS_AT]
+  element_to_parameters: [HAS_PARAMETER]
+  assumption_to_rationale: [UNDERLIES]
   activity_to_tools: [USES_TOOL]
   tool_to_activities: [~USES_TOOL]
   tool_to_owners: [~USES_TOOL, ~RESPONSIBLE_FOR]
@@ -824,6 +909,8 @@ roles:
   requirement: Requirement
   risk: Risk
   system_element: SystemElement
+  assumption: Assumption
+  parameter: Parameter
 
   responsible: RESPONSIBLE_FOR
   accountable: ACCOUNTABLE_FOR
@@ -842,6 +929,9 @@ roles:
   led_by: LED_BY
   verifies: VERIFIES
   mitigates: MITIGATES
+  underlies: UNDERLIES
+  has_parameter: HAS_PARAMETER
+  parameter_link: PARAMETER_LINK
 
   weight_property: weight
   status_property: status

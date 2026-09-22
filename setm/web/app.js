@@ -6,6 +6,7 @@ import { buildPropertyForm, formatValue, h, readPropertyForm } from './forms.js'
 import {
   renderKpis, renderMilestones, renderOntology, renderSettings, renderSystem, renderTools, renderWorkload,
 } from './views.js';
+import { renderTree } from './tree.js';
 
 const state = {
   ontology: null,
@@ -334,7 +335,7 @@ function closeModal() {
   el('modal-body').replaceChildren();
 }
 
-async function openNodeDialog(nodeId = null) {
+async function openNodeDialog(nodeId = null, defaultType = null) {
   const isNew = !nodeId;
   const existing = isNew ? null : state.nodesById.get(nodeId) || (await api.node(nodeId));
   const wrapper = h('div');
@@ -347,7 +348,7 @@ async function openNodeDialog(nodeId = null) {
     typeSelect.append(h('option', {
       value: spec.name,
       text: `${spec.category} — ${spec.label}`,
-      selected: existing ? existing.type === spec.name : false,
+      selected: existing ? existing.type === spec.name : spec.name === defaultType,
     }));
   }
 
@@ -375,12 +376,14 @@ async function openNodeDialog(nodeId = null) {
     if (isNew) {
       const created = await api.createNode({ type: typeSelect.value, properties });
       await refreshAll();
-      await selectNode(created.id);
+      if (state.view === 'graph') await selectNode(created.id);
+      else await switchView(state.view);
       toast(`Created ${spec.label} "${created.properties.name || created.id}"`, 'success');
     } else {
       await api.updateNode(nodeId, { type: typeSelect.value, properties });
       await refreshAll();
-      await selectNode(nodeId);
+      if (state.view === 'graph') await selectNode(nodeId);
+      else await switchView(state.view);
       toast('Element updated', 'success');
     }
   });
@@ -449,7 +452,8 @@ async function openEdgeDialog(sourceId = null) {
       properties,
     });
     await refreshAll();
-    await selectNode(sourceSelect.value);
+    if (state.view === 'graph') await selectNode(sourceSelect.value);
+    else await switchView(state.view);
     toast('Relation created', 'success');
   }, { confirmLabel: 'Create' });
 
@@ -543,7 +547,8 @@ async function deleteNode(id) {
   openModal('Delete element', body, async () => {
     const result = await api.deleteNode(id);
     await refreshAll();
-    await selectNode(null);
+    if (state.view === 'graph') await selectNode(null);
+    else await switchView(state.view);
     toast(`Deleted element and ${result.deleted_edges.length} relation(s)`, 'success');
   }, { confirmLabel: 'Delete' });
 }
@@ -553,10 +558,22 @@ async function deleteEdge(edgeId) {
     await api.deleteEdge(edgeId);
     await refreshAll();
     if (state.selectedId) await selectNode(state.selectedId);
+    if (state.view !== 'graph') await switchView(state.view);
     toast('Relation removed', 'success');
   } catch (error) {
     toast(error.message, 'error');
   }
+}
+
+/** Callback object handed to a board page: create/edit/delete plus jump-to-graph. */
+function pageActions(typeName) {
+  return {
+    onOpen: openFromPage,
+    onNew: () => openNodeDialog(null, typeName),
+    onEdit: (id) => openNodeDialog(id),
+    onDelete: (id) => deleteNode(id),
+    onLink: (id) => openEdgeDialog(id),
+  };
 }
 
 // ------------------------------------------------------------------- chrome
@@ -629,13 +646,20 @@ async function switchView(view) {
   try {
     if (view === 'milestones') {
       const data = await api.kpi('milestone_load');
-      renderMilestones(el('milestones-body'), data.items || [], openFromPage);
+      renderMilestones(el('milestones-body'), data.items || [], pageActions('Milestone'));
     } else if (view === 'people') {
       const data = await api.kpi('workload');
-      renderWorkload(el('people-body'), data.items || [], openFromPage);
+      renderWorkload(el('people-body'), data.items || [], pageActions('Person'));
     } else if (view === 'tools') {
       const data = await api.kpi('tool_usage');
-      renderTools(el('tools-body'), data.items || [], openFromPage);
+      renderTools(el('tools-body'), data.items || [], pageActions('Tool'));
+    } else if (view === 'tree') {
+      renderTree(el('tree-body'), state.graph.nodes, state.ontology, {
+        onOpen: openFromPage,
+        onEdit: (id) => openNodeDialog(id),
+        onDelete: (id) => deleteNode(id),
+        fetchTrace: (id) => api.trace(id, 1),
+      });
     } else if (view === 'kpi') {
       renderKpis(el('kpi-body'), await api.kpi('report'), openFromPage);
     } else if (view === 'ontology') {

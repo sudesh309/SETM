@@ -241,6 +241,45 @@ RISKS: list[tuple[str, str, int, int]] = [
     ("risk.longlead", "Detector long-lead procurement slips past CDR", 2, 5),
 ]
 
+# id, name, confidence, validation method, what it underlies
+ASSUMPTIONS: list[tuple[str, str, str, str, str]] = [
+    (
+        "asm.launcher",
+        "Launcher-imposed mass margin stays at 15% through PDR",
+        "medium",
+        "Confirm against the launch services agreement at PDR",
+        "obj.mass",
+    ),
+    (
+        "asm.detector",
+        "The baselined detector remains in production for the qualification campaign",
+        "low",
+        "Supplier roadmap review ahead of CDR",
+        "risk.longlead",
+    ),
+    (
+        "asm.thermenv",
+        "On-orbit thermal environment matches the phase-A worst-case analysis",
+        "high",
+        "Cross-check against the mission orbit once finalised",
+        "req.thermal",
+    ),
+]
+
+# id, name, parameter_type, value, unit, which element it characterises
+PARAMETERS: list[tuple[str, str, str, str, str, str]] = [
+    ("par.gsd", "Ground sample distance", "performance", "0.5", "m", "req.gsd"),
+    ("par.mass_budget", "Payload mass budget", "business", "180", "kg", "obj.mass"),
+    ("par.mtf", "Modulation transfer function", "functional", "0.15", "ratio", "sys.tele"),
+    ("par.link_rate", "SpaceWire link data rate", "interface", "200", "Mbit/s", "sys.icd_bus"),
+]
+
+# Parameter-to-parameter links only, independent of the elements they characterise.
+PARAMETER_LINKS: list[tuple[str, str]] = [
+    ("par.gsd", "par.mtf"),
+    ("par.mass_budget", "par.link_rate"),
+]
+
 # id, name, type, work package, responsible, milestone, objectives, process,
 # business process, methods, status, effort, rationale
 ACTIVITIES: list[dict[str, Any]] = [
@@ -587,6 +626,16 @@ def build_demo(ontology: Ontology) -> GraphDocument:
 
     for node_id, name, likelihood, severity in RISKS:
         node(node_id, "Risk", name=name, likelihood=likelihood, severity=severity, risk_status="mitigating")
+
+    for node_id, name, confidence, validation_method, underlies in ASSUMPTIONS:
+        node(node_id, "Assumption", name=name, confidence=confidence, validation_method=validation_method)
+        link("UNDERLIES", node_id, underlies)
+
+    for node_id, name, parameter_type, value, unit, carrier in PARAMETERS:
+        node(node_id, "Parameter", name=name, parameter_type=parameter_type, value=value, unit=unit)
+        link("HAS_PARAMETER", carrier, node_id)
+    for source, target in PARAMETER_LINKS:
+        link("PARAMETER_LINK", source, target)
 
     for node_id, name, wbs, leader, budget in WORK_PACKAGES:
         node(node_id, "WorkPackage", name=name, wbs_code=wbs, budget_days=budget, status="in_progress")
