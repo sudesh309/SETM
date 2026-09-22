@@ -80,7 +80,8 @@ setm import examples/modification-programme.json
 ```
 
 or load it without leaving the browser: open **Settings** in the running app and use the
-"Worked examples" card.
+"Worked examples" card. The "Load a project file" card beside it opens any JSON graph SETM has
+exported, replacing the current project or merging into it.
 
 ### Where the graph lives
 

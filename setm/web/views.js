@@ -280,7 +280,7 @@ export function renderTools(container, tools, actions) {
 }
 
 // -------------------------------------------------------------------- KPIs
-export function renderKpis(container, report, onOpen) {
+export function renderKpis(container, report, actions) {
   container.replaceChildren(
     pageHead(
       'Project KPIs',
@@ -288,6 +288,7 @@ export function renderKpis(container, report, onOpen) {
       + 'the links engineers have actually recorded, so it cannot drift from the plan.',
     ),
   );
+  container.append(newButton('element', actions.onNew));
 
   const score = report.health_score || {};
   container.append(h('div', { class: 'score-hero' }, [
@@ -350,7 +351,7 @@ export function renderKpis(container, report, onOpen) {
         const list = h('ul');
         for (const gap of gaps.slice(0, 40)) {
           const weight = gap.properties?.weight;
-          list.append(h('li', { onClick: () => onOpen(gap.id) }, [
+          list.append(h('li', { onClick: () => actions.onOpen(gap.id) }, [
             gap.label,
             h('span', { class: 'muted', style: 'font-size:11px', text: ` ${gap.type}` }),
             weight && weight !== 'high' ? h('span', { class: `badge ${weight}`, text: weight }) : null,
@@ -376,7 +377,7 @@ export function renderKpis(container, report, onOpen) {
     ]);
     const body = h('tbody');
     for (const item of packages) {
-      body.append(h('tr', { class: 'clickable', onClick: () => onOpen(item.id) }, [
+      body.append(h('tr', { class: 'clickable', onClick: () => actions.onOpen(item.id) }, [
         h('td', { text: item.label }),
         h('td', { class: 'mono', text: item.wbs || '—' }),
         h('td', { text: item.leader || '—' }),
@@ -400,7 +401,7 @@ function collectGaps(kpi) {
 }
 
 // ---------------------------------------------------------------- ontology
-export function renderOntology(container, ontology, onReload) {
+export function renderOntology(container, ontology, actions) {
   container.replaceChildren(
     pageHead(
       `Ontology: ${ontology.title || ontology.id} v${ontology.version}`,
@@ -409,16 +410,16 @@ export function renderOntology(container, ontology, onReload) {
     ),
   );
 
-  const actions = h('div', { class: 'card' }, [
+  const sourceCard = h('div', { class: 'card' }, [
     h('div', { class: 'card-head' }, [h('h3', { text: 'Source' })]),
     h('div', { class: 'mono muted', text: ontology.source_path || '(built in)' }),
     h('div', { style: 'margin-top:10px;display:flex;gap:8px;flex-wrap:wrap' }, [
-      h('button', { class: 'btn', text: 'Reload from disk', onClick: onReload }),
+      h('button', { class: 'btn', text: 'Reload from disk', onClick: actions.onReload }),
       h('a', { class: 'btn', href: '/api/ontology/export?format=owl', text: 'Download OWL / Turtle' }),
       h('a', { class: 'btn', href: '/api/ontology/export?format=json', text: 'Download JSON' }),
     ]),
   ]);
-  container.append(actions);
+  container.append(sourceCard);
 
   const byCategory = new Map();
   for (const spec of Object.values(ontology.node_types)) {
@@ -433,6 +434,7 @@ export function renderOntology(container, ontology, onReload) {
     const table = h('table', { class: 'data' }, [
       h('thead', {}, [h('tr', {}, [
         h('th', { text: 'Type' }), h('th', { text: 'Meaning' }), h('th', { text: 'Properties' }),
+        h('th', { text: '' }),
       ])]),
     ]);
     const body = h('tbody');
@@ -441,6 +443,14 @@ export function renderOntology(container, ontology, onReload) {
         h('td', {}, [h('i', { class: 'status-dot', style: `background:${spec.color}` }), spec.label]),
         h('td', { class: 'muted', text: spec.description || '' }),
         h('td', { class: 'mono muted', text: Object.keys(spec.properties).join(', ') }),
+        h('td', {}, [
+          h('button', {
+            class: 'btn btn-icon',
+            title: `New ${spec.label}`,
+            text: '+',
+            onClick: () => actions.onNew(spec.name),
+          }),
+        ]),
       ]));
     }
     table.append(body);
@@ -666,6 +676,8 @@ export function renderSettings(container, data, actions, initialStatus = '') {
     page.append(examplesCard);
   }
 
+  page.append(loadFileCard(actions));
+
   // One card per group, in the order the API listed them.
   const groups = [];
   for (const field of data.fields) {
@@ -732,6 +744,50 @@ export function renderSettings(container, data, actions, initialStatus = '') {
   ]));
 
   container.append(page);
+}
+
+/** Pick a .json graph file off disk and hand its parsed contents to the importer. */
+function loadFileCard(actions) {
+  const card = h('div', { class: 'card' });
+  card.append(h('div', { class: 'card-head' }, [h('h3', { text: 'Load a project file' })]));
+  card.append(h('p', { class: 'setting-help' }, [
+    'Opens a JSON graph exported from SETM (the same shape "Download JSON" writes). '
+    + 'Replaces the current project unless you choose to merge.',
+  ]));
+
+  const merge = h('input', { type: 'checkbox', id: 'import-merge' });
+  const picker = h('input', {
+    type: 'file',
+    accept: 'application/json,.json',
+    style: 'display:none',
+  });
+
+  const choose = h('button', {
+    class: 'btn',
+    text: 'Choose file…',
+    onClick: () => picker.click(),
+  });
+
+  picker.addEventListener('change', async () => {
+    const file = picker.files?.[0];
+    if (!file) return;
+    choose.disabled = true;
+    try {
+      // Parsing happens in the caller, where a bad file can be reported as a toast.
+      await actions.onLoadJson(await file.text(), merge.checked, file.name);
+    } finally {
+      // Clearing lets the same file be picked again after a failed attempt.
+      picker.value = '';
+      choose.disabled = false;
+    }
+  });
+
+  card.append(h('div', { style: 'display:flex;align-items:center;gap:14px;margin-top:10px' }, [
+    choose,
+    h('label', { class: 'inline', for: 'import-merge' }, [merge, ' Merge into the current project']),
+    picker,
+  ]));
+  return card;
 }
 
 function describeResult(result) {
