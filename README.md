@@ -72,8 +72,19 @@ and processes, all linked.
 A second worked example ships too: a complex in-service aircraft modification
 programme (obsolescence redesign and a performance retrofit, sharing an
 architecture baseline of OAD/OPD/OSD deliverables and a real system-element
-breakdown). Build it fresh with `setm demo --example modification`, import the ready-made file
-directly:
+breakdown). Build it with:
+
+```bash
+setm demo --example modification --force        # replaces the demo above, so `setm serve` shows it
+setm demo --example modification json:./data/modification.json   # or keep both side by side
+```
+
+`--force` is needed because `setm demo` above already wrote the default project file, and
+`setm demo` never overwrites one silently. Without it you get
+`already holds data. Re-run with --force to overwrite.` — that is the guard talking, not a
+missing flag.
+
+You can also import the ready-made file directly:
 
 ```bash
 setm import examples/modification-programme.json
