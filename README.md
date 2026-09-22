@@ -63,6 +63,16 @@ The demo is a Phase B satellite payload programme: 4 objectives, 5 gates,
 4 work packages, 13 activities, a 7-tool engineering chain, requirements, risks
 and processes, all linked.
 
+A second worked example ships too: a complex in-service aircraft modification
+programme (obsolescence redesign and a performance retrofit, sharing an
+architecture baseline of OAD/OPD/OSD deliverables and a real system-element
+breakdown). Build it fresh with `setm demo --example modification`, or import
+the ready-made file directly:
+
+```bash
+setm import examples/modification-programme.json
+```
+
 ### Where the graph lives
 
 The default is a **local JSON file** — no credentials, no network, no setup, so
