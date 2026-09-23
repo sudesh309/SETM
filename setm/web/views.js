@@ -2,7 +2,24 @@
 // the system/performance page. Each render function takes data and a container
 // and returns nothing -- state lives in app.js.
 
+import { download } from './api.js';
 import { h, formatValue } from './forms.js';
+
+// A button that downloads through the API client, so the request carries the
+// token header. A failure is announced as an event; app.js turns it into a toast.
+function downloadLink(href, text) {
+  return h('a', {
+    class: 'btn',
+    href,
+    text,
+    onClick: (event) => {
+      event.preventDefault();
+      download(href).catch((error) => {
+        window.dispatchEvent(new CustomEvent('setm:error', { detail: error.message }));
+      });
+    },
+  });
+}
 
 const STATUS_COLOURS = {
   done: '#34d399',
@@ -415,8 +432,8 @@ export function renderOntology(container, ontology, actions) {
     h('div', { class: 'mono muted', text: ontology.source_path || '(built in)' }),
     h('div', { style: 'margin-top:10px;display:flex;gap:8px;flex-wrap:wrap' }, [
       h('button', { class: 'btn', text: 'Reload from disk', onClick: actions.onReload }),
-      h('a', { class: 'btn', href: '/api/ontology/export?format=owl', text: 'Download OWL / Turtle' }),
-      h('a', { class: 'btn', href: '/api/ontology/export?format=json', text: 'Download JSON' }),
+      downloadLink('/api/ontology/export?format=owl', 'Download OWL / Turtle'),
+      downloadLink('/api/ontology/export?format=json', 'Download JSON'),
     ]),
   ]);
   container.append(sourceCard);
@@ -570,10 +587,10 @@ export function renderSystem(container, { health, appKpi, validation }, actions)
   const exports = h('div', { class: 'card' });
   exports.append(h('div', { class: 'card-head' }, [h('h3', { text: 'Export and maintenance' })]));
   exports.append(h('div', { style: 'display:flex;gap:8px;flex-wrap:wrap' }, [
-    h('a', { class: 'btn', href: '/api/export?format=json', text: 'Graph as JSON' }),
-    h('a', { class: 'btn', href: '/api/export?format=ttl', text: 'Graph as Turtle/RDF' }),
-    h('a', { class: 'btn', href: '/api/export?format=owl', text: 'Ontology as OWL' }),
-    h('a', { class: 'btn', href: '/metrics', text: 'Prometheus metrics' }),
+    downloadLink('/api/export?format=json', 'Graph as JSON'),
+    downloadLink('/api/export?format=ttl', 'Graph as Turtle/RDF'),
+    downloadLink('/api/export?format=owl', 'Ontology as OWL'),
+    downloadLink('/metrics', 'Prometheus metrics'),
     h('button', { class: 'btn', text: 'Reload from storage', onClick: actions.onReloadStorage }),
     h('button', { class: 'btn btn-primary', text: 'Save now', onClick: actions.onSave }),
   ]));

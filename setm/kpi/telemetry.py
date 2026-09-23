@@ -254,8 +254,26 @@ def _prom_name(key: str) -> str:
     metric = f"setm_{base}"
     if not labels:
         return metric
-    rendered = ",".join(f'{k}="{v}"' for k, v in (pair.split("=", 1) for pair in labels.split(",") if "=" in pair))
+    rendered = ",".join(
+        f'{_prom_label_name(k)}="{_prom_label_value(v)}"'
+        for k, v in (pair.split("=", 1) for pair in labels.split(",") if "=" in pair)
+    )
     return f"{metric}{{{rendered}}}"
+
+
+def _prom_label_name(name: str) -> str:
+    """Label names are restricted to ``[a-zA-Z_][a-zA-Z0-9_]*``."""
+    cleaned = "".join(c if c.isalnum() or c == "_" else "_" for c in name.strip())
+    return cleaned if cleaned and not cleaned[0].isdigit() else f"_{cleaned}"
+
+
+def _prom_label_value(value: str) -> str:
+    """Escape a label value per the exposition format.
+
+    Values come partly from data (ontology type names, storage schemes), and an
+    unescaped quote or newline would let one forge metric lines for a scraper.
+    """
+    return value.replace("\\", "\\\\").replace('"', '\\"').replace("\n", "\\n")
 
 
 def _iso(epoch: float) -> str:

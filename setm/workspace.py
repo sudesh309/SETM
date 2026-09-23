@@ -150,8 +150,11 @@ class Workspace:
         """Pick up edits to the ontology file without losing the loaded graph."""
         with self._save_lock:
             ontology = load_ontology(self.settings.ontology, overlays=self.settings.overlays)
-            document = self.store.snapshot()
-            self.store = GraphStore(document, ontology, strict=self.settings.strict)
+            # Holding the old store still from snapshot to swap means a write
+            # landing in between cannot be silently left behind in it.
+            with self.store.reading():
+                document = self.store.snapshot()
+                self.store = GraphStore(document, ontology, strict=self.settings.strict)
             self.backend.bind_ontology(ontology)
             telemetry.increment("ontology.reloads")
             return ontology
@@ -160,7 +163,8 @@ class Workspace:
         """Replace or merge the current graph with an imported document."""
         with self._save_lock:
             if merge:
-                current = self.store.snapshot()
+                with self.store.reading():
+                    current = self.store.snapshot()
                 known_nodes = {n.id for n in current.nodes}
                 known_edges = {e.id for e in current.edges}
                 current.nodes += [n for n in document.nodes if n.id not in known_nodes]

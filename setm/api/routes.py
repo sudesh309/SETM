@@ -8,7 +8,9 @@ server in :mod:`setm.api.server` and by the optional ASGI adapter in
 
 from __future__ import annotations
 
+import copy
 import json
+import logging
 import re
 from dataclasses import dataclass, field
 from typing import Any, Callable, Iterable
@@ -26,6 +28,9 @@ from ..ontology.loader import _as_source
 from ..serialize.rdfmap import document_to_turtle, ontology_to_owl, turtle_to_document
 from ..serialize.tabular import document_to_tables, tables_to_csv
 from ..workspace import Workspace
+from .security import check_remote_target, require_token
+
+logger = logging.getLogger("setm.api")
 
 
 @dataclass
@@ -231,7 +236,13 @@ def patch_settings(workspace: Workspace, request: Request) -> Response:
     """
     body = request.json_body()
     settings = workspace.settings
-    changed = settings.apply_update(body.get("values") or {})
+    values = body.get("values") or {}
+    if "storage" in values or "storage_options" in values:
+        # Vet the resulting target on a copy, so a refused one changes nothing.
+        candidate = copy.deepcopy(settings)
+        candidate.apply_update(values)
+        check_remote_target(candidate.storage, candidate.storage_options, settings)
+    changed = settings.apply_update(values)
     workspace.apply_settings(changed)
 
     needs_reopen = sorted(
@@ -264,6 +275,9 @@ def patch_settings(workspace: Workspace, request: Request) -> Response:
 def reopen_workspace(workspace: Workspace, request: Request) -> Response:
     """Rebuild the workspace against the current settings."""
     body = request.json_body()
+    settings = workspace.settings
+    if "ui" in (settings.source_of("storage"), settings.source_of("storage_options")):
+        check_remote_target(settings.storage, settings.storage_options, settings)
     return Response(body=workspace.reconfigure(force=bool(body.get("force"))))
 
 
@@ -288,6 +302,7 @@ def test_storage(workspace: Workspace, request: Request) -> Response:
             options[key] = value
 
     try:
+        check_remote_target(uri, options, workspace.settings)
         backend = open_storage(uri, **options)
         backend.bind_ontology(workspace.ontology)
         with telemetry.track("storage.probe", backend=backend.scheme):
@@ -340,24 +355,17 @@ def get_graph(workspace: Workspace, request: Request) -> Response:
     text = request.get("q")
     limit = request.get_int("limit", 5000)
 
-    with telemetry.track("graph.read"):
-        nodes = store.find_nodes(types=node_types or None, text=text)[:limit]
-        keep = {n.id for n in nodes}
-        edges = [
-            e
-            for e in store.edges()
-            if e.source in keep and e.target in keep and (not edge_types or e.type in edge_types)
-        ]
-        payload = query.subgraph(store, keep)
-        payload["edges"] = [e for e in payload["edges"] if not edge_types or e["type"] in edge_types]
-    payload.update(
-        {
-            "project": store.project.to_dict(),
-            "revision": store.revision,
-            "truncated": len(nodes) >= limit,
-            "counts": {"nodes": len(payload["nodes"]), "edges": len(edges)},
-        }
-    )
+    with telemetry.track("graph.read"), store.reading():
+        matched = store.find_nodes(types=node_types or None, text=text)
+        payload = query.subgraph(store, (n.id for n in matched[:limit]), edge_types=edge_types or None)
+        payload.update(
+            {
+                "project": store.project.to_dict(),
+                "revision": store.revision,
+                "truncated": len(matched) > limit,
+                "counts": {"nodes": len(payload["nodes"]), "edges": len(payload["edges"])},
+            }
+        )
     return Response(body=payload)
 
 
@@ -648,11 +656,13 @@ def kpi(workspace: Workspace, request: Request) -> Response:
     section = request.get("section", "report")
     if section not in KPI_CATALOGUE:
         raise ValidationError(f"Unknown KPI section '{section}'. Try: {', '.join(KPI_CATALOGUE)}")
-    with telemetry.track("kpi.compute", section=section):
+    store = workspace.store
+    # One lock across the whole computation, so every KPI reads the same revision.
+    with telemetry.track("kpi.compute", section=section), store.reading():
         if section == "report":
-            body = compute_kpis(workspace.store, targets=workspace.settings.kpi_targets or None)
+            body = compute_kpis(store, targets=workspace.settings.kpi_targets or None)
         else:
-            body = KPI_CATALOGUE[section](workspace.store)
+            body = KPI_CATALOGUE[section](store)
     return Response(body=body if isinstance(body, dict) else {"section": section, "items": body})
 
 
@@ -769,7 +779,13 @@ def error_response(exc: Exception) -> Response:
         telemetry.increment("http.errors", code=exc.code)
         return Response(status=exc.status, body={"error": exc.to_dict()})
     telemetry.increment("http.errors", code="internal")
-    return Response(status=500, body={"error": {"code": "internal_error", "message": str(exc)}})
+    # The detail goes to the server log, not to the client: an exception message
+    # can carry file paths, configuration and fragments of stored data.
+    logger.exception("Unhandled error while serving a request")
+    return Response(
+        status=500,
+        body={"error": {"code": "internal_error", "message": "Internal error -- see the server log for details"}},
+    )
 
 
 def dispatch(workspace: Workspace, request: Request) -> Response:
@@ -785,15 +801,6 @@ def dispatch(workspace: Workspace, request: Request) -> Response:
             return handler(workspace, request)
     except Exception as exc:  # converted, never propagated to the socket layer
         return error_response(exc)
-
-
-def require_token(request: Request, expected: str) -> Response | None:
-    if not expected:
-        return None
-    supplied = request.headers.get("x-setm-token") or request.get("token")
-    if supplied != expected:
-        return Response(status=401, body={"error": {"code": "unauthorised", "message": "Missing or wrong API token"}})
-    return None
 
 
 def known_paths() -> Iterable[str]:

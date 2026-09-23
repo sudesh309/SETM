@@ -21,10 +21,10 @@ from urllib.parse import parse_qs, urlsplit
 from ..config import Settings
 from ..kpi.telemetry import telemetry
 from ..workspace import Workspace
-from .routes import Request, Response, dispatch, require_token
+from .routes import Request, Response, dispatch
+from .security import MAX_BODY_BYTES, SECURITY_HEADERS, BodyError, check_host, content_length, guard  # noqa: F401
 
 WEB_ROOT = Path(__file__).resolve().parent.parent / "web"
-MAX_BODY_BYTES = 64 * 1024 * 1024
 
 logger = logging.getLogger("setm.server")
 
@@ -46,6 +46,9 @@ class _Handler(BaseHTTPRequestHandler):
         self.send_header("Content-Type", response.content_type)
         self.send_header("Content-Length", str(len(payload)))
         self.send_header("Cache-Control", "no-store")
+        for key, value in SECURITY_HEADERS.items():
+            if key not in response.headers:
+                self.send_header(key, value)
         for key, value in response.headers.items():
             self.send_header(key, value)
         self.end_headers()
@@ -53,10 +56,9 @@ class _Handler(BaseHTTPRequestHandler):
             self.wfile.write(payload)
 
     def _read_body(self) -> Any:
-        length = int(self.headers.get("Content-Length") or 0)
-        if length <= 0:
-            return None
-        if length > MAX_BODY_BYTES:
+        """Read and decode the body. Raises BodyError for a malformed or oversize one."""
+        length = content_length(self.headers.get("Content-Length"))
+        if length == 0:
             return None
         raw = self.rfile.read(length)
         content_type = (self.headers.get("Content-Type") or "").split(";")[0].strip()
@@ -78,27 +80,40 @@ class _Handler(BaseHTTPRequestHandler):
         )
 
     # -- verbs --------------------------------------------------------------
+    def _dispatch(self, *, static: bool = False) -> None:
+        try:
+            request = self._build_request()
+        except BodyError as exc:
+            # The body was not consumed, so the connection cannot be reused.
+            self.close_connection = True
+            self._send(exc.response())
+            return
+        if static and not (request.path.startswith("/api/") or request.path == "/metrics"):
+            denied = check_host(request, self.settings)
+            if denied is not None:
+                self._send(denied)
+            else:
+                self._serve_static(request.path)
+            return
+        self._handle_api(request)
+
     def do_GET(self) -> None:
-        request = self._build_request()
-        if request.path.startswith("/api/") or request.path == "/metrics":
-            self._handle_api(request)
-        else:
-            self._serve_static(request.path)
+        self._dispatch(static=True)
 
     def do_HEAD(self) -> None:
         self.do_GET()
 
     def do_POST(self) -> None:
-        self._handle_api(self._build_request())
+        self._dispatch()
 
     def do_PATCH(self) -> None:
-        self._handle_api(self._build_request())
+        self._dispatch()
 
     def do_PUT(self) -> None:
-        self._handle_api(self._build_request())
+        self._dispatch()
 
     def do_DELETE(self) -> None:
-        self._handle_api(self._build_request())
+        self._dispatch()
 
     def do_OPTIONS(self) -> None:
         self._send(
@@ -113,7 +128,7 @@ class _Handler(BaseHTTPRequestHandler):
         )
 
     def _handle_api(self, request: Request) -> None:
-        denied = require_token(request, self.settings.api_token)
+        denied = guard(request, self.settings)
         if denied is not None:
             self._send(denied)
             return

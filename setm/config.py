@@ -105,6 +105,26 @@ FIELD_SPECS: tuple[FieldSpec, ...] = (
         "port", "Port", "integer", "Access",
         "", restart_required=True, env_var="SETM_PORT",
     ),
+    FieldSpec(
+        "allowed_hosts", "Allowed host names", "list", "Access",
+        "Names, besides localhost and IP addresses, that this server may be reached "
+        "under -- for a server bound wider than 127.0.0.1. Requests addressed to any "
+        "other name are refused, which is what stops DNS-rebinding attacks.",
+        placeholder="setm.engineering.internal", env_var="SETM_ALLOWED_HOSTS",
+    ),
+    FieldSpec(
+        "allowed_origins", "Allowed origins", "list", "Access",
+        "Other web origins allowed to make changes through this API. Leave empty: "
+        "SETM's own pages never need an entry here.",
+        placeholder="https://portal.engineering.internal", env_var="SETM_ALLOWED_ORIGINS",
+    ),
+    FieldSpec(
+        "remote_storage_hosts", "Internal storage hosts", "list", "Access",
+        "Internal (private-network) hosts the settings page may point storage at, such as "
+        "an in-house GitLab or PLM service. Public hosts need no entry; storage set on the "
+        "command line or in setm.toml is never restricted.",
+        placeholder="gitlab.engineering.internal", env_var="SETM_REMOTE_STORAGE_HOSTS",
+    ),
 )
 
 FIELDS_BY_NAME = {spec.name: spec for spec in FIELD_SPECS}
@@ -140,6 +160,12 @@ class Settings:
     api_token: str = ""
     #: Per-KPI target overrides; anything absent falls back to the built-in.
     kpi_targets: dict[str, float] = field(default_factory=dict)
+    #: Extra Host names accepted (DNS-rebinding guard); see setm.api.security.
+    allowed_hosts: list[str] = field(default_factory=list)
+    #: Extra Origins allowed to make state-changing requests (CSRF guard).
+    allowed_origins: list[str] = field(default_factory=list)
+    #: Internal hosts the settings page may point a remote backend at (SSRF guard).
+    remote_storage_hosts: list[str] = field(default_factory=list)
     open_browser: bool = False
 
     #: Which layer last set each field, and the config file in play.
@@ -304,7 +330,17 @@ class Settings:
             lines.append(f"{spec.name} = {_toml_value(value)}")
 
         target.parent.mkdir(parents=True, exist_ok=True)
-        target.write_text("\n".join(lines) + "\n", encoding="utf-8")
+        content = "\n".join(lines) + "\n"
+        if include_secrets:
+            # Owner-only from the moment it exists: creating it world-readable and
+            # tightening afterwards would leave a window in which it can be read.
+            if target.exists():
+                os.chmod(target, 0o600)
+            fd = os.open(target, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+            with os.fdopen(fd, "w", encoding="utf-8") as handle:
+                handle.write(content)
+        else:
+            target.write_text(content, encoding="utf-8")
         self.config_path = str(target)
         return target
 

@@ -43,15 +43,23 @@ def _edge_brief(store: GraphStore, edge: Edge) -> dict[str, Any]:
     }
 
 
-def subgraph(store: GraphStore, node_ids: Iterable[str]) -> dict[str, Any]:
-    """Induced subgraph: the named nodes plus every edge between them."""
-    ids = {i for i in node_ids if store.has_node(i)}
-    nodes = [store.node(i) for i in ids]
-    edges = [e for e in store.edges() if e.source in ids and e.target in ids]
-    return {
-        "nodes": [_node_brief(store, n) for n in nodes],
-        "edges": [_edge_brief(store, e) for e in edges],
-    }
+def subgraph(
+    store: GraphStore, node_ids: Iterable[str], *, edge_types: Iterable[str] | None = None
+) -> dict[str, Any]:
+    """Induced subgraph: the named nodes plus every edge between them.
+
+    The cost follows the size of the subgraph (see ``GraphStore.edges_among``),
+    so a 30-node neighbourhood no longer scans every edge of a 26,000-edge
+    project. Nodes keep the order they were given in.
+    """
+    with store.reading():
+        ids = dict.fromkeys(i for i in node_ids if store.has_node(i))
+        nodes = [store.node(i) for i in ids]
+        edges = store.edges_among(ids, edge_types)
+        return {
+            "nodes": [_node_brief(store, n) for n in nodes],
+            "edges": [_edge_brief(store, e) for e in edges],
+        }
 
 
 def neighbourhood(
@@ -166,21 +174,12 @@ def completeness(store: GraphStore, node_id: str) -> dict[str, Any]:
     call an unowned activity complete.
     """
     node = store.node(node_id)
-    ontology = store.ontology
-    expected: dict[str, set[str]] = {}
-    directions: dict[str, str] = {}
-    for spec in ontology.edge_types.values():
-        if not spec.question:
-            continue
-        if ontology._type_matches(node.type, spec.domain):
-            expected.setdefault(spec.question, set()).add(spec.name)
-            directions[spec.name] = "out"
-        elif ontology._type_matches(node.type, spec.range):
-            expected.setdefault(spec.question, set()).add(spec.name)
-            directions[spec.name] = "in"
+    expectations = store.ontology.expectations_for(node.type)
+    expected = expectations.by_question
+    directions = expectations.directions
 
-    present = {e.type for e in store.out_edges(node_id)} | {
-        e.type for e in store.in_edges(node_id) if directions.get(e.type) == "in"
+    present = store.edge_types_at(node_id, direction="out") | {
+        t for t in store.edge_types_at(node_id, direction="in") if directions.get(t) == "in"
     }
     answered = {q: sorted(types & present) for q, types in expected.items()}
     missing = {q: sorted(types) for q, types in expected.items() if not (types & present)}
@@ -266,12 +265,13 @@ def orphans(store: GraphStore) -> list[dict[str, Any]]:
 
 def cycles(store: GraphStore, edge_types: Iterable[str] | None = None, *, limit: int = 20) -> list[list[str]]:
     """Detect directed cycles, e.g. circular activity dependencies."""
-    allowed = set(edge_types) if edge_types else None
+    # One snapshot of the adjacency rather than a locked out_edges call per node.
+    outgoing = store.adjacency(edge_types)
     colour: dict[str, int] = {}
     found: list[list[str]] = []
 
     def visit(start: str) -> None:
-        stack: list[tuple[str, list[Edge]]] = [(start, list(store.out_edges(start, allowed)))]
+        stack: list[tuple[str, list[Edge]]] = [(start, list(outgoing.get(start, ())))]
         trail: list[str] = [start]
         colour[start] = 1
         while stack:
@@ -292,7 +292,7 @@ def cycles(store: GraphStore, edge_types: Iterable[str] | None = None, *, limit:
             elif state == 0:
                 colour[nxt] = 1
                 trail.append(nxt)
-                stack.append((nxt, list(store.out_edges(nxt, allowed))))
+                stack.append((nxt, list(outgoing.get(nxt, ()))))
 
     for node in store.nodes():
         if colour.get(node.id, 0) == 0:

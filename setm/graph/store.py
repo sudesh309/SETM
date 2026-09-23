@@ -7,11 +7,19 @@ marks the store dirty so the persistence layer knows to flush.
 Indices are plain dicts of sets: for the graph sizes this tool targets (tens of
 thousands of elements) that is comfortably fast, and it keeps the code readable.
 See ``setm/graph/_fastpath.py`` for the optional Rust acceleration hook.
+
+Concurrency: the HTTP server answers each request on its own thread, so reads
+and writes can overlap. Every method takes the store's re-entrant lock, which
+makes each call safe on its own (iterating an index while another thread adds
+to it would otherwise raise "changed size during iteration"). A caller that
+needs several reads to agree with each other -- a KPI report, a graph payload --
+wraps them in ``with store.reading():``.
 """
 
 from __future__ import annotations
 
 import threading
+from contextlib import contextmanager
 from typing import Any, Callable, Iterable, Iterator
 
 from ..errors import ConflictError, NotFoundError, ValidationError
@@ -39,6 +47,9 @@ class GraphStore:
         self._in: dict[str, set[str]] = {}
         self._nodes_by_type: dict[str, set[str]] = {}
         self._edges_by_type: dict[str, set[str]] = {}
+        #: Lower-cased free-text haystack per node, built on first search and
+        #: dropped whenever the node changes.
+        self._search_text: dict[str, str] = {}
         self.project = document.project
         self.revision = document.revision
         self.ontology_id = document.ontology_id or ontology.id
@@ -62,6 +73,12 @@ class GraphStore:
             self._in[edge.target].add(edge.id)
 
     # -- reads --------------------------------------------------------------
+    @contextmanager
+    def reading(self) -> Iterator["GraphStore"]:
+        """Hold the store still across several reads, so they see one revision."""
+        with self._lock:
+            yield self
+
     @property
     def node_count(self) -> int:
         return len(self._nodes)
@@ -86,39 +103,80 @@ class GraphStore:
             raise NotFoundError(f"No edge with id '{edge_id}'", edge_id=edge_id) from None
 
     def nodes(self) -> list[Node]:
-        return list(self._nodes.values())
+        with self._lock:
+            return list(self._nodes.values())
 
     def edges(self) -> list[Edge]:
-        return list(self._edges.values())
+        with self._lock:
+            return list(self._edges.values())
 
     def nodes_of_type(self, type_name: str, *, include_subtypes: bool = True) -> list[Node]:
-        if not include_subtypes:
-            return [self._nodes[i] for i in self._nodes_by_type.get(type_name, ())]
-        matching = [t for t in self._nodes_by_type if self.ontology.is_a(t, type_name)]
-        return [self._nodes[i] for t in matching for i in self._nodes_by_type[t]]
+        with self._lock:
+            if not include_subtypes:
+                return [self._nodes[i] for i in self._nodes_by_type.get(type_name, ())]
+            # is_a is memoised by the ontology, so this is a dict lookup per stored type.
+            matching = [t for t in self._nodes_by_type if self.ontology.is_a(t, type_name)]
+            return [self._nodes[i] for t in matching for i in self._nodes_by_type[t]]
 
     def edges_of_type(self, type_name: str) -> list[Edge]:
-        return [self._edges[i] for i in self._edges_by_type.get(type_name, ())]
+        with self._lock:
+            return [self._edges[i] for i in self._edges_by_type.get(type_name, ())]
 
     def out_edges(self, node_id: str, types: Iterable[str] | None = None) -> list[Edge]:
         allowed = set(types) if types else None
-        return [
-            self._edges[i]
-            for i in self._out.get(node_id, ())
-            if allowed is None or self._edges[i].type in allowed
-        ]
+        with self._lock:
+            return [
+                self._edges[i]
+                for i in self._out.get(node_id, ())
+                if allowed is None or self._edges[i].type in allowed
+            ]
 
     def in_edges(self, node_id: str, types: Iterable[str] | None = None) -> list[Edge]:
         allowed = set(types) if types else None
-        return [
-            self._edges[i]
-            for i in self._in.get(node_id, ())
-            if allowed is None or self._edges[i].type in allowed
-        ]
+        with self._lock:
+            return [
+                self._edges[i]
+                for i in self._in.get(node_id, ())
+                if allowed is None or self._edges[i].type in allowed
+            ]
+
+    def has_edge(self, node_id: str, type_name: str, *, direction: str = "out") -> bool:
+        """Does the node have at least one ``type_name`` relation in that direction?
+
+        The KPI engine asks this of every activity for several relation types;
+        answering it without building a list is most of what makes the report fast.
+        """
+        index = self._out if direction == "out" else self._in
+        with self._lock:
+            edges = self._edges
+            return any(edges[i].type == type_name for i in index.get(node_id, ()))
+
+    def edge_types_at(self, node_id: str, *, direction: str = "out") -> set[str]:
+        """The distinct relation types on one side of a node."""
+        index = self._out if direction == "out" else self._in
+        with self._lock:
+            edges = self._edges
+            return {edges[i].type for i in index.get(node_id, ())}
+
+    def adjacency(self, types: Iterable[str] | None = None) -> dict[str, list[Edge]]:
+        """Outgoing edges for every node, built under one lock.
+
+        For whole-graph walks (cycle detection) that would otherwise call
+        out_edges once per node. Per-node order matches out_edges exactly, so a
+        walk visits neighbours in the same order either way.
+        """
+        allowed = set(types) if types else None
+        with self._lock:
+            edges = self._edges
+            return {
+                node_id: [edges[i] for i in ids if allowed is None or edges[i].type in allowed]
+                for node_id, ids in self._out.items()
+            }
 
     def incident_edges(self, node_id: str) -> list[Edge]:
-        ids = self._out.get(node_id, set()) | self._in.get(node_id, set())
-        return [self._edges[i] for i in ids]
+        with self._lock:
+            ids = self._out.get(node_id, set()) | self._in.get(node_id, set())
+            return [self._edges[i] for i in ids]
 
     def neighbours(self, node_id: str, *, direction: str = "both", types: Iterable[str] | None = None) -> list[Node]:
         found: list[Node] = []
@@ -137,8 +195,36 @@ class GraphStore:
     def degree(self, node_id: str) -> int:
         return len(self._out.get(node_id, ())) + len(self._in.get(node_id, ()))
 
+    def edges_among(self, node_ids: Iterable[str], types: Iterable[str] | None = None) -> list[Edge]:
+        """Every edge whose two ends are both in ``node_ids`` (the induced edge set).
+
+        Picks the cheaper route: for a small selection, walk each node's outgoing
+        index; for most of the graph, one pass over all edges beats thousands of
+        per-node lookups.
+        """
+        allowed = set(types) if types else None
+        ids = node_ids if isinstance(node_ids, (set, frozenset, dict)) else set(node_ids)
+        with self._lock:
+            if len(ids) * 4 < len(self._nodes):
+                candidates = (self._edges[e] for i in ids for e in self._out.get(i, ()))
+            else:
+                candidates = iter(self._edges.values())
+            return [
+                e
+                for e in candidates
+                if e.source in ids and e.target in ids and (allowed is None or e.type in allowed)
+            ]
+
     def iter_nodes(self) -> Iterator[Node]:
-        return iter(list(self._nodes.values()))
+        return iter(self.nodes())
+
+    def _haystack(self, node: Node) -> str:
+        text = self._search_text.get(node.id)
+        if text is None:
+            text = self._search_text[node.id] = " ".join(
+                [node.id, node.type] + [str(v) for v in node.properties.values() if v is not None]
+            ).lower()
+        return text
 
     def find_nodes(
         self,
@@ -151,22 +237,19 @@ class GraphStore:
         """Filter nodes by type, free-text, exact property match and/or a callable."""
         type_set = set(types) if types else None
         needle = text.strip().lower()
-        results = []
-        for node in self._nodes.values():
-            if type_set and node.type not in type_set:
-                continue
-            if properties and any(str(node.properties.get(k, "")) != str(v) for k, v in properties.items()):
-                continue
-            if needle:
-                haystack = " ".join(
-                    [node.id, node.type] + [str(v) for v in node.properties.values() if v is not None]
-                ).lower()
-                if needle not in haystack:
+        with self._lock:
+            results = []
+            for node in self._nodes.values():  # insertion order keeps results stable
+                if type_set and node.type not in type_set:
                     continue
-            if predicate and not predicate(node):
-                continue
-            results.append(node)
-        return results
+                if properties and any(str(node.properties.get(k, "")) != str(v) for k, v in properties.items()):
+                    continue
+                if needle and needle not in self._haystack(node):
+                    continue
+                if predicate and not predicate(node):
+                    continue
+                results.append(node)
+            return results
 
     # -- writes -------------------------------------------------------------
     def add_node(
@@ -223,6 +306,7 @@ class GraphStore:
             validate_node(self.ontology, candidate, strict=self.strict)
             node.properties = candidate.properties
             node.provenance.touch(actor)
+            self._search_text.pop(node_id, None)
             self._bump()
             return node
 
@@ -251,6 +335,7 @@ class GraphStore:
             node.type = new_type
             node.properties = candidate.properties
             self._nodes_by_type.setdefault(new_type, set()).add(node_id)
+            self._search_text.pop(node_id, None)
             node.provenance.touch(actor)
             self._bump()
             return node
@@ -271,6 +356,7 @@ class GraphStore:
             self._nodes_by_type.get(node.type, set()).discard(node_id)
             self._out.pop(node_id, None)
             self._in.pop(node_id, None)
+            self._search_text.pop(node_id, None)
             self._bump()
             return {"deleted_node": node_id, "deleted_edges": [e.id for e in incident]}
 
