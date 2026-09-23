@@ -249,6 +249,16 @@ class EdgeTypeSpec:
         }
 
 
+@dataclass(frozen=True)
+class Expectations:
+    """The relations an element of one type is expected to have, by question."""
+
+    #: question -> the edge types that would answer it
+    by_question: dict[str, frozenset[str]]
+    #: edge type -> "out" or "in", the direction it attaches to this type
+    directions: dict[str, str]
+
+
 @dataclass
 class Ontology:
     """A resolved ontology: inheritance flattened, references checked."""
@@ -267,6 +277,17 @@ class Ontology:
     #: "activity" or "milestone" concept in an ontology that renamed them.
     roles: dict[str, str] = field(default_factory=dict)
     source_path: str = ""
+    #: Memoised type reasoning (see "type reasoning" below). An ontology is
+    #: treated as immutable once built -- a reload builds a new object -- so the
+    #: caches never need invalidating in normal use; invalidate_caches() exists
+    #: for code that edits one in place.
+    _is_a_cache: dict[tuple[str, str], bool] = field(default_factory=dict, init=False, repr=False, compare=False)
+    _match_cache: dict[tuple[str, tuple[str, ...]], bool] = field(
+        default_factory=dict, init=False, repr=False, compare=False
+    )
+    _expectation_cache: dict[str, "Expectations"] = field(
+        default_factory=dict, init=False, repr=False, compare=False
+    )
 
     def role(self, name: str, default: str = "") -> str:
         return self.roles.get(name, default)
@@ -300,8 +321,26 @@ class Ontology:
     def concrete_node_types(self) -> list[NodeTypeSpec]:
         return [t for t in self.node_types.values() if not t.abstract]
 
+    # -- type reasoning --------------------------------------------------------
+    # Every question of the form "may this type take part in that relation" goes
+    # through is_a / _type_matches. They are asked hundreds of thousands of times
+    # while computing KPIs over a large graph, always with the same few dozen
+    # answers, so each answer is worked out once per ontology.
+
+    def invalidate_caches(self) -> None:
+        self._is_a_cache.clear()
+        self._match_cache.clear()
+        self._expectation_cache.clear()
+
     def is_a(self, type_name: str, ancestor: str) -> bool:
         """True when ``type_name`` equals or inherits from ``ancestor``."""
+        key = (type_name, ancestor)
+        cached = self._is_a_cache.get(key)
+        if cached is None:
+            cached = self._is_a_cache[key] = self._walk_is_a(type_name, ancestor)
+        return cached
+
+    def _walk_is_a(self, type_name: str, ancestor: str) -> bool:
         seen: set[str] = set()
         current: str | None = type_name
         while current and current not in seen:
@@ -323,10 +362,42 @@ class Ontology:
         return [s for s in self.edge_types.values() if self._type_matches(source_type, s.domain)]
 
     def _type_matches(self, type_name: str, allowed: Iterable[str]) -> bool:
-        allowed = list(allowed)
-        if not allowed:  # unconstrained
-            return True
-        return any(a == "*" or self.is_a(type_name, a) for a in allowed)
+        key = (type_name, tuple(allowed))
+        cached = self._match_cache.get(key)
+        if cached is None:
+            # Empty means unconstrained.
+            cached = not key[1] or any(a == "*" or self.is_a(type_name, a) for a in key[1])
+            self._match_cache[key] = cached
+        return cached
+
+    def expectations_for(self, type_name: str) -> "Expectations":
+        """Which management questions an element of this type is expected to answer.
+
+        An edge type whose domain accepts the type is expected outwards, one whose
+        range accepts it inwards -- which is how "who owns this activity", an
+        incoming Person -> Activity relation, counts. The answer depends only on
+        the type, so it is computed once per type rather than once per element.
+        """
+        cached = self._expectation_cache.get(type_name)
+        if cached is not None:
+            return cached
+        expected: dict[str, set[str]] = {}
+        directions: dict[str, str] = {}
+        for spec in self.edge_types.values():
+            if not spec.question:
+                continue
+            if self._type_matches(type_name, spec.domain):
+                expected.setdefault(spec.question, set()).add(spec.name)
+                directions[spec.name] = "out"
+            elif self._type_matches(type_name, spec.range):
+                expected.setdefault(spec.question, set()).add(spec.name)
+                directions[spec.name] = "in"
+        cached = Expectations(
+            by_question={q: frozenset(names) for q, names in expected.items()},
+            directions=dict(directions),
+        )
+        self._expectation_cache[type_name] = cached
+        return cached
 
     def to_dict(self) -> dict[str, Any]:
         return {

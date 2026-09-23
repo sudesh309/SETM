@@ -1,6 +1,6 @@
 // Application controller: state, wiring and the inspector.
 
-import { api, setToken } from './api.js';
+import { api, download, setToken } from './api.js';
 import { GraphView } from './graph.js';
 import { buildPropertyForm, formatValue, h, readPropertyForm } from './forms.js';
 import {
@@ -29,6 +29,7 @@ let graphView;
 // --------------------------------------------------------------------- init
 async function boot() {
   restoreTheme();
+  window.addEventListener('setm:error', (event) => toast(event.detail, 'error'));
   wireChrome();
   graphView = new GraphView(el('graph-canvas'), {
     onSelect: (node) => selectNode(node.id),
@@ -51,6 +52,7 @@ async function boot() {
 
 async function refreshHeader() {
   const health = await api.health();
+  state.serverRevision = health.graph?.revision;
   const project = health.graph ? await api.project() : {};
   el('project-name').textContent = project.name || 'Untitled project';
   el('project-meta').textContent = [
@@ -60,6 +62,7 @@ async function refreshHeader() {
     `${health.storage.scheme} storage`,
   ].filter(Boolean).join(' · ');
   setDirty(health.unsaved_changes);
+  return health;
 }
 
 async function refreshGraph() {
@@ -377,13 +380,14 @@ async function openNodeDialog(nodeId = null, defaultType = null) {
     const properties = readPropertyForm(form, spec);
     if (isNew) {
       const created = await api.createNode({ type: typeSelect.value, properties });
-      await refreshAll();
+      await applyChange({ node: created });
       if (state.view === 'graph') await selectNode(created.id);
       else await switchView(state.view);
       toast(`Created ${spec.label} "${created.properties.name || created.id}"`, 'success');
     } else {
-      await api.updateNode(nodeId, { type: typeSelect.value, properties });
-      await refreshAll();
+      const retyped = typeSelect.value !== existing.type;
+      const updated = await api.updateNode(nodeId, { type: typeSelect.value, properties });
+      await applyChange({ node: updated }, retyped ? 2 : 1);
       if (state.view === 'graph') await selectNode(nodeId);
       else await switchView(state.view);
       toast('Element updated', 'success');
@@ -447,13 +451,13 @@ async function openEdgeDialog(sourceId = null) {
     const spec = state.ontology.edge_types[relationSelect.value];
     const form = propertyHost.querySelector('form');
     const properties = form ? readPropertyForm(form, { properties: spec.properties }) : {};
-    await api.createEdge({
+    const created = await api.createEdge({
       type: relationSelect.value,
       source: sourceSelect.value,
       target: targetSelect.value,
       properties,
     });
-    await refreshAll();
+    await applyChange({ edge: created });
     if (state.view === 'graph') await selectNode(sourceSelect.value);
     else await switchView(state.view);
     toast('Relation created', 'success');
@@ -529,13 +533,13 @@ function openReportDialog(nodeId) {
       class: 'btn',
       type: 'button',
       text: 'Open preview in a new tab',
-      onClick: () => window.open(url(false), '_blank', 'noopener'),
+      onClick: () => download(url(false), { newTab: true }).catch((error) => toast(error.message, 'error')),
     }),
   ]));
 
   openModal(`Report — ${node?.label || nodeId}`, body, async () => {
-    // A navigation rather than a fetch, so the browser names and saves the file.
-    window.location.href = url(true);
+    // Fetched with the token header, then saved under the server's filename.
+    await download(url(true));
     toast('Report downloaded', 'success');
   }, { confirmLabel: 'Download' });
 }
@@ -548,7 +552,7 @@ async function deleteNode(id) {
   ]);
   openModal('Delete element', body, async () => {
     const result = await api.deleteNode(id);
-    await refreshAll();
+    await applyChange({ deletedNode: result.deleted_node, deletedEdges: result.deleted_edges });
     if (state.view === 'graph') await selectNode(null);
     else await switchView(state.view);
     toast(`Deleted element and ${result.deleted_edges.length} relation(s)`, 'success');
@@ -557,8 +561,8 @@ async function deleteNode(id) {
 
 async function deleteEdge(edgeId) {
   try {
-    await api.deleteEdge(edgeId);
-    await refreshAll();
+    const result = await api.deleteEdge(edgeId);
+    await applyChange({ deletedEdges: [result.deleted_edge] });
     if (state.selectedId) await selectNode(state.selectedId);
     if (state.view !== 'graph') await switchView(state.view);
     toast('Relation removed', 'success');
@@ -858,6 +862,78 @@ async function openFromPage(id) {
 async function refreshAll() {
   await refreshGraph();
   await refreshHeader();
+  buildFilters();
+}
+
+// --------------------------------------------------------- incremental sync
+// After a single add, edit or delete the server has already said exactly what
+// changed, so the local copy is patched instead of re-downloading the whole
+// graph (thousands of elements) after every click. The header refresh that
+// follows reports the server's revision: if it is not the one this change
+// should have produced -- another tab or user wrote in between -- fall back to
+// a full refetch, so the patch can never leave the page out of step.
+
+/** Mirrors Node.label on the server: the first non-empty naming property. */
+function labelOf(properties, id) {
+  for (const key of ['name', 'title', 'label', 'text']) {
+    const value = properties?.[key];
+    if (typeof value === 'string' && value.trim()) return value;
+  }
+  return id;
+}
+
+function nodeBrief(node) {
+  const spec = state.ontology.node_types[node.type] || {};
+  return {
+    id: node.id,
+    type: node.type,
+    type_label: spec.label || node.type,
+    label: labelOf(node.properties, node.id),
+    color: spec.color || '#6b7fd7',
+    properties: node.properties || {},
+  };
+}
+
+function edgeBrief(edge) {
+  const spec = state.ontology.edge_types[edge.type] || {};
+  return {
+    id: edge.id,
+    type: edge.type,
+    label: spec.label || edge.type,
+    question: spec.question || '',
+    source: edge.source,
+    target: edge.target,
+    properties: edge.properties || {},
+  };
+}
+
+function upsert(list, item) {
+  const index = list.findIndex((existing) => existing.id === item.id);
+  if (index >= 0) list[index] = item; else list.push(item);
+}
+
+/**
+ * Apply one write's result locally. ``bumps`` is how many revisions the write
+ * advanced the server by (an edit that also changes type is two).
+ */
+async function applyChange({ node, edge, deletedNode, deletedEdges = [] }, bumps = 1) {
+  const expected = (state.graph.revision ?? 0) + bumps;
+  if (node) upsert(state.graph.nodes, nodeBrief(node));
+  if (edge) upsert(state.graph.edges, edgeBrief(edge));
+  if (deletedNode) state.graph.nodes = state.graph.nodes.filter((n) => n.id !== deletedNode);
+  if (deletedEdges.length) {
+    const gone = new Set(deletedEdges);
+    state.graph.edges = state.graph.edges.filter((e) => !gone.has(e.id));
+  }
+  state.graph.revision = expected;
+  state.nodesById = new Map(state.graph.nodes.map((n) => [n.id, n]));
+
+  await refreshHeader();
+  if (state.serverRevision !== expected) {
+    await refreshGraph();  // someone else changed the graph too: take the server's copy
+  } else {
+    applyFilters();
+  }
   buildFilters();
 }
 

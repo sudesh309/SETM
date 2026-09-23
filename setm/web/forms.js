@@ -4,13 +4,14 @@
 // their help text and their validation all come from the ontology file. Add a
 // property there and the dialog grows a field on the next reload.
 
+// Builds DOM nodes. Text always goes in through textContent or text nodes, never
+// innerHTML, so nothing read from the graph can be interpreted as markup.
 export function h(tag, attributes = {}, children = []) {
   const element = document.createElement(tag);
   for (const [key, value] of Object.entries(attributes)) {
     if (value === undefined || value === null || value === false) continue;
     if (key === 'class') element.className = value;
     else if (key === 'text') element.textContent = value;
-    else if (key === 'html') element.innerHTML = value;
     else if (key.startsWith('on') && typeof value === 'function') {
       element.addEventListener(key.slice(2).toLowerCase(), value);
     } else element.setAttribute(key, value === true ? '' : value);

@@ -156,3 +156,23 @@ class FileBackendMixin:
             "size_bytes": path.stat().st_size if exists else 0,
             "writable": os.access(path.parent, os.W_OK) if path.parent.exists() else False,
         }
+
+
+def credentialed_opener() -> Any:
+    """A urllib opener that refuses redirects.
+
+    urllib copies request headers onto a redirected request, so a storage server
+    that answers ``302 Location: http://elsewhere/`` would receive our
+    ``Authorization`` / ``PRIVATE-TOKEN`` header there too.
+    """
+    import urllib.request
+
+    class _NoRedirect(urllib.request.HTTPRedirectHandler):
+        def redirect_request(self, req, fp, code, msg, headers, newurl):  # type: ignore[override]
+            import urllib.error
+
+            raise urllib.error.HTTPError(
+                req.full_url, code, f"refusing to follow a redirect to {newurl} with credentials", headers, fp
+            )
+
+    return urllib.request.build_opener(_NoRedirect)

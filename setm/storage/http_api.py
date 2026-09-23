@@ -20,7 +20,7 @@ from typing import Any
 
 from ..errors import StorageError
 from ..model import GraphDocument
-from .base import SaveResult, StorageBackend
+from .base import SaveResult, StorageBackend, credentialed_opener
 from .registry import register
 
 
@@ -53,7 +53,7 @@ class HttpBackend(StorageBackend):
             headers["Content-Type"] = "application/json"
         request = urllib.request.Request(self.url, data=body, method=method, headers=headers)
         try:
-            with urllib.request.urlopen(request, timeout=self.timeout) as response:
+            with credentialed_opener().open(request, timeout=self.timeout) as response:
                 payload = response.read().decode("utf-8")
                 return json.loads(payload) if payload.strip() else {}
         except urllib.error.HTTPError as exc:

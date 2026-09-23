@@ -122,7 +122,7 @@ def compute_kpis(store: GraphStore, *, targets: dict[str, float] | None = None) 
     # -- 1. Why: objectives actually supported by work ----------------------
     if objective_type and supports:
         objectives = store.nodes_of_type(objective_type)
-        unsupported = [o for o in objectives if not store.in_edges(o.id, [supports])]
+        unsupported = [o for o in objectives if not store.has_edge(o.id, supports, direction="in")]
         kpis.append(
             _kpi(
                 "objective_coverage",
@@ -138,7 +138,7 @@ def compute_kpis(store: GraphStore, *, targets: dict[str, float] | None = None) 
 
     # -- 2. Who: every activity has a responsible engineer ------------------
     if activities and responsible:
-        unassigned = [a for a in activities if not store.in_edges(a.id, [responsible])]
+        unassigned = [a for a in activities if not store.has_edge(a.id, responsible, direction="in")]
         kpis.append(
             _kpi(
                 "activity_ownership",
@@ -154,7 +154,7 @@ def compute_kpis(store: GraphStore, *, targets: dict[str, float] | None = None) 
 
     # -- 3. When: every activity lands on a milestone -----------------------
     if activities and delivers_at:
-        unscheduled = [a for a in activities if not store.out_edges(a.id, [delivers_at])]
+        unscheduled = [a for a in activities if not store.has_edge(a.id, delivers_at)]
         kpis.append(
             _kpi(
                 "milestone_anchoring",
@@ -170,7 +170,7 @@ def compute_kpis(store: GraphStore, *, targets: dict[str, float] | None = None) 
 
     # -- 4. How: process discipline -----------------------------------------
     if activities and implements_process:
-        without_process = [a for a in activities if not store.out_edges(a.id, [implements_process])]
+        without_process = [a for a in activities if not store.has_edge(a.id, implements_process)]
         kpis.append(
             _kpi(
                 "process_linkage",
@@ -183,7 +183,7 @@ def compute_kpis(store: GraphStore, *, targets: dict[str, float] | None = None) 
         )
         if process_type:
             processes = store.nodes_of_type(process_type)
-            unused = [p for p in processes if not store.in_edges(p.id, [implements_process])]
+            unused = [p for p in processes if not store.has_edge(p.id, implements_process, direction="in")]
             kpis.append(
                 _kpi(
                     "process_utilisation",
@@ -200,7 +200,7 @@ def compute_kpis(store: GraphStore, *, targets: dict[str, float] | None = None) 
     # -- 5. Verification coverage -------------------------------------------
     if requirement_type and verifies:
         requirements = store.nodes_of_type(requirement_type)
-        unverified = [r for r in requirements if not store.in_edges(r.id, [verifies])]
+        unverified = [r for r in requirements if not store.has_edge(r.id, verifies, direction="in")]
         kpis.append(
             _kpi(
                 "verification_coverage",
@@ -216,7 +216,7 @@ def compute_kpis(store: GraphStore, *, targets: dict[str, float] | None = None) 
     tool_type = ontology.node_role("tool")
     uses_tool = ontology.edge_role("uses_tool")
     if activities and tool_type and uses_tool:
-        without_tool = [a for a in activities if not store.out_edges(a.id, [uses_tool])]
+        without_tool = [a for a in activities if not store.has_edge(a.id, uses_tool)]
         kpis.append(
             _kpi(
                 "tool_linkage",
@@ -231,7 +231,7 @@ def compute_kpis(store: GraphStore, *, targets: dict[str, float] | None = None) 
             )
         )
 
-        tools_in_use = [t for t in store.nodes_of_type(tool_type) if store.in_edges(t.id, [uses_tool])]
+        tools_in_use = [t for t in store.nodes_of_type(tool_type) if store.has_edge(t.id, uses_tool, direction="in")]
         cleared = {"qualified", "not_required", "waived"}
         outstanding = [
             t for t in tools_in_use if str(t.properties.get("qualification_status") or "") not in cleared

@@ -400,12 +400,43 @@ GET    /api/export?format=json|ttl|owl|csv         POST /api/import
 ```
 
 Errors are typed JSON (`validation_error`, `conflict`, `not_found`, …) with the
-offending property named. Set `api_token` to require `X-SETM-Token`; pass
-`X-SETM-User` to record who made a change.
+offending property named. Set `api_token` to require `X-SETM-Token` (the header
+only — a token in the URL is refused, since URLs end up in logs and history);
+pass `X-SETM-User` to record who made a change.
+
+## Security
+
+SETM is a local web application, so the attacks that matter arrive through your
+own browser. They are refused by default:
+
+- **Cross-site requests.** A page on another site cannot change your graph:
+  anything that writes must come from SETM's own pages, or from a non-browser
+  client such as `curl` or a script.
+- **DNS rebinding.** Requests addressed to a host name the server does not
+  answer to are refused (`421`), so a hostile domain re-pointed at `127.0.0.1`
+  gets nothing.
+- **Server-side request forgery.** The settings page cannot point storage at an
+  internal address, or send the server's own GitLab/HTTP credentials to a host
+  they were not configured for. Storage set on the command line or in
+  `setm.toml` is yours to choose and is not restricted.
+- **Headers.** A strict Content-Security-Policy, `nosniff`, `no-referrer` and
+  no framing, on every response. Oversized or malformed requests are refused
+  cleanly, and internal errors never echo their details.
+
+Three settings widen this when a deployment needs it — `allowed_hosts` (names a
+wider-bound server is reached under), `allowed_origins` (another site that may
+write) and `remote_storage_hosts` (an internal GitLab or PLM service the
+settings page may use). If you bind beyond `127.0.0.1`, set an `api_token` too.
+The full threat model is in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md#10-security-model).
 
 ---
 
 ## Architecture
+
+The full architecture document — layers, request lifecycle, the ontology and
+data model, storage, the graph store, KPI engine, browser client, security
+model, performance and extension points, with diagrams — is
+**[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)**. In brief:
 
 Layered, each depending only on the one below, which is why a backend or a KPI
 is a small isolated change:
@@ -413,6 +444,7 @@ is a small isolated change:
 ```
 setm/web/          vanilla JS: canvas graph, ontology-driven forms, dashboards
 setm/api/          route table (routes.py) + stdlib server (server.py) + ASGI (asgi.py)
+                   + one security layer both servers share (security.py)
 setm/config.py     settings, their provenance, and the settings-page metadata
 setm/workspace.py  ties ontology + storage + graph together; autosave
 setm/report.py     single-element reports as HTML, Markdown or JSON
@@ -442,18 +474,26 @@ Deliberate choices worth knowing about:
 ## Performance and scale
 
 The graph is held in memory and indexed; reads are dict lookups, and a write is
-O(degree) plus validation. Measured on a synthetic programme of **5,377 elements
-and 26,666 relations** (single CPython process, no Rust extension):
+O(degree) plus validation. Measured on a synthetic programme of **6,468 elements
+and 26,857 relations** (single CPython process, no Rust extension):
 
 | Operation | Time |
 |---|---|
-| Trace one activity (who/when/why/how/what + gaps) | 0.08 ms |
-| Neighbourhood, depth 2 | 4.4 ms |
-| Cycle detection over the dependency network | 14 ms |
-| Full graph read (what the UI loads) | 46 ms |
-| Whole-graph conformance validation | 0.4 s |
-| Full KPI report (13 KPIs + 6 breakdowns) | 0.5 s |
-| Bulk import, every edge validated | 26 µs/edge |
+| Trace one activity (who/when/why/how/what + gaps) | 0.05 ms |
+| Neighbourhood, depth 2 | 2.4 ms |
+| Cycle detection over the dependency network | 16 ms |
+| Full graph read (what the UI loads) | 25 ms |
+| Whole-graph conformance validation | 0.26 s |
+| Full KPI report (13 KPIs + 7 breakdowns) | 0.29 s |
+| Bulk import, every edge validated | 20 µs/edge |
+
+The KPI report is about twice as fast as it was. Type reasoning ("may this type
+take part in that relation") is now cached per ontology rather than re-derived for
+every element — one report used to make 342,000 `is_a` calls. After an edit the
+browser patches its own copy of the graph from the server's reply instead of
+downloading the whole graph again. The before/after measurements, and how
+correctness was checked, are in
+[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md#11-performance).
 
 Repulsion in the browser layout uses spatial binning rather than all-pairs, and
 labels are placed greedily with collision rejection, so a dense graph stays
@@ -479,18 +519,22 @@ For a much larger programme:
 
 ```bash
 pip install -e '.[dev]'
-pytest                      # 250 tests
+pytest                      # 314 tests
 ```
 
 Covering ontology inheritance and validation, graph mutation and traversal,
 lossless round-trips through every file backend and exchange format, the full
-API surface, KPI computation, the CLI, and the HTTP server end to end.
+API surface, KPI computation, the CLI, the HTTP server end to end, the security
+layer against a live server (`test_security.py`), and each performance
+optimisation against the plain computation it replaced, including a threaded
+read/write stress test (`test_performance.py`).
 
 ## Repository layout
 
 ```
 setm/                  application
 ontologies/            aerospace-se-core.yaml + example programme overlay
+docs/                  ARCHITECTURE.md — the architecture document
 rust/setm_core/        optional traversal accelerator
 tests/                 test suite
 setm.toml.example      configuration template
