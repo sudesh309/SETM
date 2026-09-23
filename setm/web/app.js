@@ -7,6 +7,7 @@ import {
   renderKpis, renderMilestones, renderOntology, renderSettings, renderSystem, renderTools, renderWorkload,
 } from './views.js';
 import { renderTree } from './tree.js';
+import { renderOverview, topRisks } from './overview.js';
 
 const state = {
   ontology: null,
@@ -17,8 +18,9 @@ const state = {
   hiddenEdgeTypes: new Set(),
   hiddenWeights: new Set(),
   search: '',
-  view: 'graph',
+  view: 'overview',
   dirty: false,
+  graphFitted: false,
 };
 
 const el = (id) => document.getElementById(id);
@@ -39,9 +41,9 @@ async function boot() {
     await refreshGraph();
     await refreshHeader();
     buildFilters();
-    graphView.fit();
-    // The layout keeps settling after the first paint; re-fit once it has.
-    setTimeout(() => graphView.fit(), 1400);
+    // The graph canvas starts hidden behind the overview, so it has no size to
+    // fit to yet; switchView('graph') fits it the first time it is shown.
+    await switchView(state.view);
   } catch (error) {
     toast(error.message, 'error');
   }
@@ -584,6 +586,21 @@ function wireChrome() {
     switchView(button.dataset.view);
   });
 
+  el('btn-admin').addEventListener('click', (event) => {
+    event.stopPropagation();
+    const menu = el('admin-menu');
+    const opening = menu.classList.contains('hidden');
+    menu.classList.toggle('hidden', !opening);
+    el('btn-admin').setAttribute('aria-expanded', String(opening));
+  });
+  el('admin-menu').addEventListener('click', (event) => {
+    const item = event.target.closest('.menu-item');
+    if (item) switchView(item.dataset.view);
+  });
+  document.addEventListener('click', (event) => {
+    if (!event.target.closest('.menu-wrap')) closeAdminMenu();
+  });
+
   el('search').addEventListener('input', (event) => {
     state.search = event.target.value;
     applyFilters();
@@ -637,14 +654,28 @@ function wireChrome() {
   });
 }
 
+function closeAdminMenu() {
+  el('admin-menu').classList.add('hidden');
+  el('btn-admin').setAttribute('aria-expanded', 'false');
+}
+
 async function switchView(view) {
   state.view = view;
+  // Ontology/System/Settings live in the gear menu, so some views have no tab
+  // in the bar: nothing is highlighted for those, and the menu marks its own.
   for (const tab of document.querySelectorAll('.tab')) tab.classList.toggle('active', tab.dataset.view === view);
+  for (const item of document.querySelectorAll('.menu-item')) item.classList.toggle('active', item.dataset.view === view);
   for (const section of document.querySelectorAll('.view')) {
     section.classList.toggle('active', section.id === `view-${view}`);
   }
+  closeAdminMenu();
   try {
-    if (view === 'milestones') {
+    if (view === 'overview') {
+      const report = await api.kpi('report');
+      renderOverview(el('overview-body'), report, topRisks(state.graph.nodes, state.ontology), {
+        onOpen: openFromPage,
+      });
+    } else if (view === 'milestones') {
       const data = await api.kpi('milestone_load');
       renderMilestones(el('milestones-body'), data.items || [], pageActions('Milestone'));
     } else if (view === 'people') {
@@ -689,6 +720,12 @@ async function switchView(view) {
       });
     } else if (view === 'graph') {
       graphView._resize();
+      // First time the canvas actually has a size: frame the graph.
+      if (!state.graphFitted) {
+        state.graphFitted = true;
+        graphView.fit();
+        setTimeout(() => graphView.fit(), 1400);  // the layout is still settling
+      }
     }
   } catch (error) {
     toast(error.message, 'error');

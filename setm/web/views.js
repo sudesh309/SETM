@@ -53,7 +53,7 @@ export function rowActions(id, actions) {
   ]);
 }
 
-function bar(percent, band) {
+export function bar(percent, band) {
   return h('div', { class: `bar ${band || ''}` }, [h('span', { style: `width:${Math.max(0, Math.min(100, percent))}%` })]);
 }
 
@@ -120,7 +120,12 @@ export function renderMilestones(container, milestones, actions) {
         ]));
       }
       table.append(body);
-      card.append(table);
+      // Collapsed so the page reads as a list of gates; open one to drill in.
+      const details = h('details', { class: 'gate-activities' }, [
+        h('summary', { text: `${plural(milestone.activity_count, 'activity', 'activities')} at this gate` }),
+      ]);
+      details.append(table);
+      card.append(details);
     } else {
       card.append(h('p', { class: 'muted', style: 'font-size:12.5px;margin:0', text: 'Nothing is committed to this gate yet.' }));
     }
@@ -284,11 +289,10 @@ export function renderKpis(container, report, actions) {
   container.replaceChildren(
     pageHead(
       'Project KPIs',
-      'Measured from the graph itself, not from a separate status report: every number below is a query over '
-      + 'the links engineers have actually recorded, so it cannot drift from the plan.',
+      'Every measure, worst first. Each number is a query over the links engineers have actually '
+      + 'recorded, so it cannot drift from the plan. The Overview tab carries just the headline.',
     ),
   );
-  container.append(newButton('element', actions.onNew));
 
   const score = report.health_score || {};
   container.append(h('div', { class: 'score-hero' }, [
@@ -305,9 +309,11 @@ export function renderKpis(container, report, actions) {
     ]),
   ]));
 
+  // Built here, appended below the measures: it is a diagnostic, not a headline.
+  let weightCard = null;
   const weights = report.breakdowns?.by_weight;
   if (weights) {
-    const card = h('div', { class: 'card' });
+    const card = weightCard = h('div', { class: 'card', style: 'margin-top:18px' });
     card.append(h('div', { class: 'card-head' }, [
       h('h3', { text: 'Weight distribution' }),
       h('span', { class: 'muted', text: 'what the programme says matters' }),
@@ -326,11 +332,18 @@ export function renderKpis(container, report, actions) {
           `${weight} ${counts[weight] || 0}`,
         ]))));
     }
-    container.append(card);
   }
 
+  // Problems first. Unavailable measures sink to the bottom rather than
+  // sitting between two real numbers.
+  const bandRank = { poor: 0, watch: 1, good: 2, unknown: 3 };
+  const ordered = [...(report.kpis || [])].sort((a, b) => {
+    if (a.available !== b.available) return a.available ? -1 : 1;
+    return (bandRank[a.band] ?? 3) - (bandRank[b.band] ?? 3);
+  });
+
   const grid = h('div', { class: 'grid grid-kpi' });
-  for (const kpi of report.kpis || []) {
+  for (const kpi of ordered) {
     const card = h('div', { class: `kpi-card ${kpi.band}` });
     card.append(h('div', { class: 'kpi-name', text: kpi.name }));
     if (!kpi.available) {
@@ -364,6 +377,7 @@ export function renderKpis(container, report, actions) {
     grid.append(card);
   }
   container.append(grid);
+  if (weightCard) container.append(weightCard);
 
   const packages = report.breakdowns?.by_work_package || [];
   if (packages.length) {
@@ -392,7 +406,7 @@ export function renderKpis(container, report, actions) {
   }
 }
 
-function collectGaps(kpi) {
+export function collectGaps(kpi) {
   const detail = kpi.detail || {};
   for (const key of ['uncovered', 'unassigned', 'unanchored', 'unlinked', 'unused', 'unverified', 'elements']) {
     if (Array.isArray(detail[key])) return detail[key];

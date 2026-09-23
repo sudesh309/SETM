@@ -49,7 +49,9 @@ setm demo                 # build the worked example
 setm serve --open
 ```
 
-Then open <http://127.0.0.1:8765>.
+Then open <http://127.0.0.1:8765>. It lands on **Overview** — health score, what is below
+target, gate readiness and the top risks on one screen — with the working views along the top and
+Ontology / System / Settings behind the gear.
 
 **Windows note:** if `setm` isn't found after install, use `python -m setm` in
 its place -- but do this *after* `pip install -e .`, not instead of it. Without

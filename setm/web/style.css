@@ -124,7 +124,8 @@ button, input, select, textarea { font: inherit; color: inherit; }
 #main { height: calc(100vh - 52px); position: relative; }
 .view { display: none; height: 100%; }
 .view.active { display: flex; }
-#view-milestones.active, #view-people.active, #view-tools.active, #view-tree.active, #view-kpi.active,
+#view-overview.active, #view-milestones.active, #view-people.active, #view-tools.active,
+#view-tree.active, #view-kpi.active,
 #view-ontology.active, #view-system.active, #view-settings.active { display: block; }
 
 .scroll-page { height: 100%; overflow-y: auto; padding: 22px 26px 60px; }
@@ -327,6 +328,86 @@ label.inline input[type="range"] { flex: 1; }
 .score-number.good { color: var(--good); }
 .score-number.watch { color: var(--watch); }
 .score-number.poor { color: var(--poor); }
+
+/* ---------------------------------------------------------- overview page */
+.ov-hero {
+  display: flex; align-items: center; gap: 24px;
+  background: var(--panel); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 20px 24px; margin-bottom: 14px;
+}
+.ov-hero .score-number { font-size: 56px; }
+.ov-verdict { margin: 0 0 4px; font-size: 17px; }
+.ov-sub { margin: 0; color: var(--text-dim); font-size: 13.5px; }
+
+/* A coloured spine on the left is the fastest "how bad" read on a list. */
+.ov-row {
+  display: grid; grid-template-columns: 1fr auto; gap: 6px 16px; align-items: start;
+  padding: 12px 0 12px 12px; border-top: 1px solid var(--border);
+  border-left: 3px solid transparent;
+}
+.ov-row:first-of-type { border-top: none; }
+.ov-row.poor { border-left-color: var(--poor); }
+.ov-row.watch { border-left-color: var(--watch); }
+.ov-row-name { font-size: 13.5px; font-weight: 550; }
+.ov-row-detail { font-size: 11.5px; color: var(--text-faint); line-height: 1.5; margin-top: 3px; max-width: 70ch; }
+.ov-row-figure { text-align: right; white-space: nowrap; }
+.ov-figure { font-size: 20px; font-weight: 650; font-variant-numeric: tabular-nums; }
+.ov-figure.poor { color: var(--poor); }
+.ov-figure.watch { color: var(--watch); }
+.ov-target { font-size: 11px; color: var(--text-faint); margin-top: 2px; }
+.ov-gaps { grid-column: 1 / -1; font-size: 12px; }
+.ov-gaps summary { cursor: pointer; color: var(--text-dim); }
+.ov-gaps ul { margin: 6px 0 0; padding-left: 16px; color: var(--text-dim); }
+.ov-gaps li { cursor: pointer; margin-bottom: 2px; }
+.ov-gaps li:hover { color: var(--accent); }
+.ov-ontarget { margin: 12px 0 0; padding-top: 10px; border-top: 1px solid var(--border);
+  font-size: 12px; color: var(--text-faint); }
+
+.ov-gate {
+  display: grid; grid-template-columns: 1fr 200px 46px 92px; gap: 14px; align-items: center;
+  padding: 10px 0; border-top: 1px solid var(--border);
+}
+.ov-gate:first-of-type { border-top: none; }
+.ov-gate-name { display: flex; align-items: center; gap: 8px; font-size: 13.5px; }
+.ov-gate-figure { text-align: right; font-variant-numeric: tabular-nums; font-size: 13px; }
+.ov-gate-counts { font-size: 11.5px; text-align: right; }
+
+.ov-risk {
+  display: flex; align-items: center; gap: 12px;
+  padding: 9px 0; border-top: 1px solid var(--border);
+}
+.ov-risk:first-of-type { border-top: none; }
+.ov-risk-name { flex: 1; font-size: 13.5px; }
+.ov-exposure {
+  min-width: 30px; text-align: center; font-weight: 650; font-size: 13px;
+  font-variant-numeric: tabular-nums; padding: 2px 6px; border-radius: 4px;
+  background: var(--bg-sunken);
+}
+.ov-exposure.poor { color: var(--poor); }
+.ov-exposure.watch { color: var(--watch); }
+
+@media (max-width: 900px) {
+  .ov-gate { grid-template-columns: 1fr 60px; }
+  .ov-gate-bar, .ov-gate-counts { display: none; }
+}
+
+.gate-activities { margin-top: 12px; font-size: 12.5px; }
+.gate-activities summary { cursor: pointer; color: var(--text-dim); }
+.gate-activities summary:hover { color: var(--accent); }
+
+/* ------------------------------------------------------------- menu */
+.menu-wrap { position: relative; }
+.menu {
+  position: absolute; right: 0; top: calc(100% + 6px); z-index: 40; min-width: 168px;
+  background: var(--bg-raised); border: 1px solid var(--border-strong);
+  border-radius: var(--radius); padding: 5px; box-shadow: 0 10px 26px rgba(0, 0, 0, 0.32);
+}
+.menu-item {
+  display: block; width: 100%; text-align: left; padding: 8px 11px; font-size: 13px;
+  background: none; border: 0; border-radius: 5px; color: var(--text); cursor: pointer;
+}
+.menu-item:hover { background: var(--accent-soft); color: var(--accent); }
+.menu-item.active { color: var(--accent); }
 
 .bar { height: 7px; border-radius: 4px; background: var(--bg-sunken); overflow: hidden; }
 .bar > span { display: block; height: 100%; background: var(--accent); }
