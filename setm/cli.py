@@ -97,6 +97,10 @@ def build_parser() -> argparse.ArgumentParser:
     init.add_argument("--name", default="New project")
     init.add_argument("--programme", default="")
     init.add_argument("--chief-engineer", default="")
+    init.add_argument(
+        "--profile", default="",
+        help="element types and relations to use: a profile from the ontology (light, full)",
+    )
 
     demo = add("demo", "create a worked example project")
     demo.add_argument("target", nargs="?", help="storage URI")
@@ -203,6 +207,10 @@ def cmd_init(args: argparse.Namespace) -> int:
     document.project.id = args.name.lower().replace(" ", "-")[:60] or "project"
     document.project.programme = args.programme
     document.project.chief_engineer = args.chief_engineer
+    if args.profile:
+        from .workspace import normalise_profile
+
+        document.project.profile = normalise_profile(ontology, {"preset": args.profile})
     result = backend.save(document, message="initialise project", actor=settings.actor)
     print(f"Initialised '{args.name}' at {result.location or settings.storage}")
     print(f"Next: setm serve {settings.storage}")

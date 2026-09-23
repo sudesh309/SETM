@@ -149,6 +149,39 @@ pack), Markdown (for a minute or a merge request) or JSON. It carries the
 properties, the traceability grouped by question, the gaps the ontology expects
 filled, the impact and the provenance.
 
+## Projects: create one in the interface, with the vocabulary it needs
+
+Click the **project name** at the top left for the **Projects** list: every project, with Open, and
+**+ New project**. The new-project dialog asks for:
+
+- the project's name, programme, phase and chief engineer;
+- how to store it (a JSON file, or SQLite for a large project);
+- its **configuration** — which element types and relations the project uses.
+
+| Configuration | What it holds |
+|---|---|
+| **Light** (the default) | The essentials: Objective, Requirement, Risk, Activity, Deliverable, Person, Work package and Milestone, with the 15 relations between them. Right for a small team or a first project. |
+| **Full** | Every element type and relation in the ontology: processes, methods, tools and data exchange, system architecture, parameters and assumptions. Types added to the ontology later appear automatically. |
+| **Custom** | Start from either and tick exactly what the project needs. Ticking a type brings along the relations it makes possible; a relation whose ends are both switched off is greyed out, with the reason shown. |
+
+Everything follows from that choice:
+- the forms and relation picker;
+- the Graph filters, the Tree and the Ontology page;
+- validation;
+- the KPIs, where one that needs a switched-off concept shows as unavailable rather than failing.
+
+To change a project's configuration later, open **Ontology** from the gear menu and click
+**Customise…** on *This project's configuration*. Anything that already has elements stays on — the
+server refuses to switch it off, so nothing can be stranded.
+
+Projects created this way live in `./data/projects/` (the `projects_dir` setting), one file each.
+The configuration is saved inside the project itself, so it moves with the project's data to any
+storage backend, through export and import, and into Git history.
+
+The two presets are defined in the ontology file, under `profiles:`, so a methods team can change
+what "Light" means. That affects only projects created afterwards, never existing ones. The command
+line has the same choice: `setm init … --profile light`.
+
 ## Command line
 
 Everything the interface does is scriptable, which is the point of
@@ -157,6 +190,7 @@ Everything the interface does is scriptable, which is the point of
 ```bash
 setm serve json:./data/project.json     # web interface
 setm init  sqlite:./data/project.db --name "HALO-2" --chief-engineer "A. Okonkwo"
+setm init  json:./data/rig.json --name "Test rig" --profile light   # Light configuration
 setm info                               # storage, ontology and graph status
 setm validate                           # conformance check; non-zero exit on failure
 setm kpi --fail-under 70                # CI quality gate
@@ -396,6 +430,8 @@ GET    /api/paths?source=…&target=…
 GET    /api/kpi  |  /api/kpi/app  |  /api/validate  |  /metrics
 GET    /api/settings                   PATCH /api/settings
 POST   /api/settings/test-storage      POST  /api/settings/reopen
+GET    /api/projects                   POST  /api/projects   POST /api/projects/open
+GET    /api/project/configuration      PUT   /api/project/configuration
 GET    /api/export?format=json|ttl|owl|csv         POST /api/import
 ```
 
@@ -519,7 +555,7 @@ For a much larger programme:
 
 ```bash
 pip install -e '.[dev]'
-pytest                      # 314 tests
+pytest                      # 339 tests
 ```
 
 Covering ontology inheritance and validation, graph mutation and traversal,

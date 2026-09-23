@@ -8,6 +8,7 @@ import {
 } from './views.js';
 import { renderTree } from './tree.js';
 import { renderOverview, topRisks } from './overview.js';
+import { buildTypePicker, describeProfile } from './configure.js';
 
 const state = {
   ontology: null,
@@ -309,7 +310,9 @@ function renderInspector(trace) {
 }
 
 // ------------------------------------------------------------------ dialogs
-function openModal(title, body, onConfirm, { confirmLabel = 'Save' } = {}) {
+function openModal(title, body, onConfirm, { confirmLabel = 'Save', wide = false, cancel = true } = {}) {
+  el('modal-backdrop').querySelector('.modal').classList.toggle('modal-wide', wide);
+  el('modal-cancel').classList.toggle('hidden', !cancel);
   el('modal-title').textContent = title;
   el('modal-body').replaceChildren(body);
   el('modal-error').textContent = '';
@@ -629,6 +632,7 @@ function wireChrome() {
   el('zoom-fit').addEventListener('click', () => graphView.fit());
 
   el('btn-save').addEventListener('click', save);
+  el('btn-projects').addEventListener('click', openProjectsDialog);
   el('btn-theme').addEventListener('click', toggleTheme);
   el('modal-close').addEventListener('click', closeModal);
   el('modal-cancel').addEventListener('click', closeModal);
@@ -690,6 +694,7 @@ async function switchView(view) {
       renderTools(el('tools-body'), data.items || [], pageActions('Tool'));
     } else if (view === 'tree') {
       renderTree(el('tree-body'), state.graph.nodes, state.ontology, {
+        onNew: () => openNodeDialog(),
         onOpen: openFromPage,
         onEdit: (id) => openNodeDialog(id),
         onDelete: (id) => deleteNode(id),
@@ -699,6 +704,8 @@ async function switchView(view) {
       renderKpis(el('kpi-body'), await api.kpi('report'), pageActions(null));
     } else if (view === 'ontology') {
       renderOntology(el('ontology-body'), state.ontology, {
+        configuration: await api.configuration(),
+        onCustomise: openCustomiseDialog,
         onNew: (typeName) => openNodeDialog(null, typeName),
         onReload: async () => {
           const result = await api.reloadOntology();
@@ -857,6 +864,152 @@ async function openFromPage(id) {
   await switchView('graph');
   await selectNode(id);
   graphView.centreOn(id);
+}
+
+// ----------------------------------------------------------------- projects
+// A project is one storage target with a profile: the element types and
+// relations it uses. Creating, opening and customising all end the same way --
+// the ontology the page works from changes, so everything is re-read.
+
+async function afterProjectChange(message) {
+  state.ontology = await api.ontology();
+  state.hiddenNodeTypes.clear();
+  state.hiddenEdgeTypes.clear();
+  await refreshAll();
+  await selectNode(null);
+  state.graphFitted = false;
+  await switchView(state.view === 'ontology' ? 'ontology' : 'overview');
+  toast(message, 'success');
+}
+
+async function openProjectsDialog() {
+  let listing;
+  try {
+    listing = await api.projects();
+  } catch (error) {
+    toast(error.message, 'error');
+    return;
+  }
+  const list = h('div', { class: 'project-list' });
+  for (const project of listing.projects) {
+    const preset = project.preset ? project.preset.charAt(0).toUpperCase() + project.preset.slice(1) : '';
+    const detail = project.error
+      ? `Cannot be read: ${project.error}`
+      : [project.programme, `${project.elements} elements`, `${preset} configuration`].filter(Boolean).join(' · ');
+    list.append(h('div', { class: `project-row${project.current ? ' current' : ''}` }, [
+      h('div', { class: 'project-row-main' }, [
+        h('strong', { text: project.name }),
+        h('div', { class: 'muted', text: detail }),
+        h('div', { class: 'mono faint', text: project.storage }),
+      ]),
+      project.current
+        ? h('span', { class: 'pill', text: 'open' })
+        : h('button', {
+          class: 'btn',
+          text: 'Open',
+          disabled: Boolean(project.error),
+          onClick: () => confirmOpenProject(project),
+        }),
+    ]));
+  }
+  const body = h('div', {}, [
+    h('div', { class: 'projects-head' }, [
+      h('p', { class: 'help', text: `Projects are kept in ${listing.projects_dir}. Each has its own element types and relations.` }),
+      // In the body, not the footer: the footer button closes the dialog once
+      // its action is done, which would close the New project dialog with it.
+      h('button', { class: 'btn btn-primary', id: 'btn-new-project', text: '+ New project', onClick: openNewProjectDialog }),
+    ]),
+    list,
+  ]);
+  openModal('Projects', body, async () => {}, { confirmLabel: 'Close', wide: true, cancel: false });
+}
+
+async function confirmOpenProject(project) {
+  const proceed = async () => {
+    await api.openProject(project.storage, state.dirty);
+    await afterProjectChange(`Opened ${project.name}`);
+  };
+  if (!state.dirty) {
+    try {
+      await proceed();
+      closeModal();
+    } catch (error) {
+      el('modal-error').textContent = error.message;
+    }
+    return;
+  }
+  const body = h('div', {}, [
+    h('p', { text: `Open ${project.name}?` }),
+    h('p', { class: 'setting-warn', text: 'The project you are in has unsaved changes. Opening another discards them — press Save first to keep them.' }),
+  ]);
+  openModal('Open project?', body, proceed, { confirmLabel: 'Open, discard changes' });
+}
+
+async function openNewProjectDialog() {
+  const config = await api.configuration();
+  // A new project starts Light: easy to grow, and one click from Full.
+  const light = config.presets.find((p) => p.name === 'light');
+  const picker = buildTypePicker(config, { initial: light ? { ...light, preset: 'light' } : undefined });
+
+  const field = (name, label, attributes = {}) => h('div', { class: `form-field${attributes.required ? ' required' : ''}` }, [
+    h('label', { for: `np-${name}`, text: label }),
+    attributes.textarea
+      ? h('textarea', { id: `np-${name}`, name, rows: 2 })
+      : h('input', { id: `np-${name}`, name, type: 'text', required: attributes.required, placeholder: attributes.placeholder || '' }),
+  ]);
+  const format = h('select', { id: 'np-format', name: 'format' }, [
+    h('option', { value: 'json', text: 'JSON file — simplest, easy to diff and back up' }),
+    h('option', { value: 'sqlite', text: 'SQLite database — better for large projects' }),
+  ]);
+  const body = h('div', { class: 'new-project' }, [
+    h('div', { class: 'form-group-title', text: 'Project' }),
+    h('div', { class: 'np-grid' }, [
+      field('name', 'Name', { required: true, placeholder: 'e.g. Cabin retrofit, phase B' }),
+      field('programme', 'Programme'),
+      field('phase', 'Phase', { placeholder: 'e.g. B' }),
+      field('chief_engineer', 'Chief engineer'),
+    ]),
+    field('description', 'Description', { textarea: true }),
+    h('div', { class: 'form-field' }, [h('label', { for: 'np-format', text: 'Stored as' }), format]),
+    h('div', { class: 'form-group-title', text: 'Configuration — which element types and relations this project uses' }),
+    picker.element,
+    state.dirty
+      ? h('p', { class: 'setting-warn', text: 'The project you are in has unsaved changes. Creating a new project opens it and discards them — press Save first to keep them.' })
+      : null,
+  ]);
+
+  openModal('New project', body, async () => {
+    const value = (name) => body.querySelector(`[name="${name}"]`).value.trim();
+    if (!value('name')) throw new Error('Give the project a name');
+    const result = await api.createProject({
+      name: value('name'),
+      programme: value('programme'),
+      phase: value('phase'),
+      chief_engineer: value('chief_engineer'),
+      description: value('description'),
+      format: format.value,
+      ...picker.value(),
+      open: true,
+      force: state.dirty,
+    });
+    await afterProjectChange(`Created and opened ${result.created.name}`);
+  }, { confirmLabel: 'Create project', wide: true });
+}
+
+async function openCustomiseDialog() {
+  const config = await api.configuration();
+  const picker = buildTypePicker(config, {
+    initial: { ...config.active, preset: config.profile?.preset || 'full' },
+    lockInUse: true,
+  });
+  const body = h('div', {}, [
+    h('p', { class: 'help', text: 'Choose the element types and relations this project uses. Anything that already has elements stays on — delete or retype those elements first to switch it off.' }),
+    picker.element,
+  ]);
+  openModal('Customise this project', body, async () => {
+    await api.setConfiguration(picker.value());
+    await afterProjectChange('Project configuration updated');
+  }, { confirmLabel: 'Apply', wide: true });
 }
 
 async function refreshAll() {

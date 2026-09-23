@@ -128,6 +128,17 @@ def build_ontology(raw: dict[str, Any]) -> Ontology:
             raise OntologyError(f"trace_path '{name}' refers to unknown edge types: {', '.join(unknown)}")
         trace_paths[name] = [str(step) for step in chain]
 
+    profiles: dict[str, dict[str, Any]] = {}
+    for name, data in (raw.get("profiles") or {}).items():
+        data = dict(data or {})
+        for key, known in (("node_types", node_types), ("edge_types", edge_types)):
+            if key in data:
+                unknown = [n for n in data[key] or [] if n not in known]
+                if unknown:
+                    raise OntologyError(f"Profile '{name}' names unknown {key}: {', '.join(map(str, unknown))}")
+                data[key] = [str(n) for n in data[key] or []]
+        profiles[str(name)] = data
+
     return Ontology(
         id=str(meta.get("id") or "custom"),
         version=str(meta.get("version") or "0.1.0"),
@@ -139,6 +150,7 @@ def build_ontology(raw: dict[str, Any]) -> Ontology:
         edge_types=edge_types,
         trace_paths=trace_paths,
         roles={str(k): str(v) for k, v in (raw.get("roles") or {}).items()},
+        profiles=profiles,
     )
 
 
@@ -217,4 +229,5 @@ def _as_source(ontology: Ontology) -> dict[str, Any]:
         },
         "trace_paths": ontology.trace_paths,
         "roles": ontology.roles,
+        "profiles": ontology.profiles,
     }

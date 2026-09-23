@@ -58,6 +58,12 @@ FIELD_SPECS: tuple[FieldSpec, ...] = (
         placeholder="branch", reopens_workspace=True, secret=True,
     ),
     FieldSpec(
+        "projects_dir", "Projects folder", "string", "Storage",
+        "Where projects created from the interface are kept, one file each. "
+        "The Projects list shows every project in this folder.",
+        placeholder="./data/projects", env_var="SETM_PROJECTS_DIR",
+    ),
+    FieldSpec(
         "ontology", "Ontology", "string", "Ontology",
         "Path to an ontology file, or the name of one shipped in ontologies/.",
         placeholder="aerospace-se-core", reopens_workspace=True, env_var="SETM_ONTOLOGY",
@@ -142,6 +148,8 @@ class Settings:
     #: wants each save to be a reviewable commit, ``sqlite:``, ``rdf:``,
     #: ``gsheet:`` and the rest likewise.
     storage: str = "json:./data/project.json"
+    #: Folder for projects created from the interface.
+    projects_dir: str = "./data/projects"
     #: Ontology file path or the name of a built-in ontology.
     ontology: str = "aerospace-se-core"
     #: Extra ontology files layered on top of the main one.

@@ -343,6 +343,137 @@ def patch_project(workspace: Workspace, request: Request) -> Response:
 
 
 # --------------------------------------------------------------------------- #
+# Projects and their configuration (profile)
+# --------------------------------------------------------------------------- #
+
+
+def _configuration(workspace: Workspace) -> dict[str, Any]:
+    """Everything the type picker renders from: presets, the full catalogue, usage."""
+    base = workspace.base_ontology
+    nodes_in_use, edges_in_use = workspace.types_in_use()
+    concrete = [t for t in base.concrete_node_types()]
+    all_nodes = [t.name for t in concrete]
+
+    def preset(name: str, data: dict[str, Any]) -> dict[str, Any]:
+        selection = base.resolve_profile({"preset": name})
+        nodes, edges = selection if selection else (set(all_nodes), set(base.edge_types))
+        return {
+            "name": name,
+            "label": str(data.get("label") or name.title()),
+            "description": str(data.get("description") or ""),
+            "node_types": [n for n in all_nodes if n in nodes],
+            "edge_types": [e for e in base.edge_types if e in edges],
+        }
+
+    presets = [preset(name, data) for name, data in base.profiles.items()]
+    if not any(p["name"] == "full" for p in presets):
+        presets.append(preset("full", {"label": "Full", "description": "Every element type and relation."}))
+    effective = workspace.ontology
+    return {
+        "profile": workspace.store.project.profile or {"preset": "full"},
+        "active": {
+            "node_types": [t.name for t in effective.concrete_node_types()],
+            "edge_types": list(effective.edge_types),
+        },
+        "presets": presets,
+        "catalogue": {
+            "node_types": [
+                {
+                    "name": t.name,
+                    "label": t.label,
+                    "category": t.category,
+                    "description": t.description,
+                    "color": t.color,
+                    "in_use": nodes_in_use.get(t.name, 0),
+                }
+                for t in concrete
+            ],
+            "edge_types": [
+                {
+                    "name": spec.name,
+                    "label": spec.label,
+                    "description": spec.description,
+                    "question": spec.question,
+                    "domain": list(spec.domain),
+                    "range": list(spec.range),
+                    "in_use": edges_in_use.get(spec.name, 0),
+                }
+                for spec in base.edge_types.values()
+            ],
+        },
+    }
+
+
+@router.route("GET", "/api/project/configuration")
+def get_configuration(workspace: Workspace, request: Request) -> Response:
+    """Which element types and relations this project uses, and what it could use."""
+    return Response(body=_configuration(workspace))
+
+
+@router.route("PUT", "/api/project/configuration")
+def put_configuration(workspace: Workspace, request: Request) -> Response:
+    """Change the project's element types and relations (its profile)."""
+    body = request.json_body()
+    profile = {k: body[k] for k in ("preset", "node_types", "edge_types") if k in body}
+    stored = workspace.set_profile(profile)
+    workspace.autosave("change project configuration", request.actor or workspace.settings.actor)
+    telemetry.increment("projects.configured", preset=stored.get("preset", "full"))
+    return Response(body=_configuration(workspace))
+
+
+@router.route("GET", "/api/projects")
+def list_projects_route(workspace: Workspace, request: Request) -> Response:
+    from ..projects import list_projects, projects_dir
+
+    return Response(
+        body={
+            "projects_dir": str(projects_dir(workspace)),
+            "unsaved_changes": workspace.store.dirty,
+            "projects": list_projects(workspace),
+        }
+    )
+
+
+@router.route("POST", "/api/projects")
+def create_project_route(workspace: Workspace, request: Request) -> Response:
+    """Create a project in the projects folder and, unless told not to, open it."""
+    from ..projects import create_project, open_project
+
+    body = request.json_body()
+    profile = {k: body[k] for k in ("preset", "node_types", "edge_types") if k in body}
+    created = create_project(
+        workspace,
+        name=str(body.get("name") or ""),
+        programme=str(body.get("programme") or ""),
+        phase=str(body.get("phase") or ""),
+        description=str(body.get("description") or ""),
+        chief_engineer=str(body.get("chief_engineer") or ""),
+        profile=profile,
+        fmt=str(body.get("format") or "json"),
+        actor=request.actor or workspace.settings.actor,
+    )
+    telemetry.increment("projects.created", preset=created["preset"])
+    opened: dict[str, Any] = {}
+    if body.get("open", True):
+        opened = open_project(
+            workspace, created["storage"], force=bool(body.get("force")), remember=bool(body.get("remember", True))
+        )
+    return Response(status=201, body={"created": created, "opened": opened})
+
+
+@router.route("POST", "/api/projects/open")
+def open_project_route(workspace: Workspace, request: Request) -> Response:
+    from ..projects import open_project
+
+    body = request.json_body()
+    storage = str(body.get("storage") or "")
+    if not storage:
+        raise ValidationError("Say which project to open ('storage', as listed by GET /api/projects)")
+    result = open_project(workspace, storage, force=bool(body.get("force")), remember=bool(body.get("remember", True)))
+    return Response(body=result)
+
+
+# --------------------------------------------------------------------------- #
 # Graph reads
 # --------------------------------------------------------------------------- #
 

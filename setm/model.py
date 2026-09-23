@@ -7,6 +7,7 @@ Deliberately plain dataclasses with dict/JSON round-tripping. No pydantic, no OR
 from __future__ import annotations
 
 import datetime as _dt
+import json
 import re
 import uuid
 from dataclasses import dataclass, field
@@ -166,6 +167,10 @@ class ProjectInfo:
     phase: str = ""
     description: str = ""
     chief_engineer: str = ""
+    #: Which element types and relations this project uses, e.g.
+    #: {"preset": "light", "node_types": [...], "edge_types": [...]}. Empty means
+    #: the whole ontology. See Ontology.resolve_profile().
+    profile: dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -175,6 +180,7 @@ class ProjectInfo:
             "phase": self.phase,
             "description": self.description,
             "chief_engineer": self.chief_engineer,
+            "profile": dict(self.profile),
         }
 
     @classmethod
@@ -187,7 +193,21 @@ class ProjectInfo:
             phase=str(data.get("phase") or ""),
             description=str(data.get("description") or ""),
             chief_engineer=str(data.get("chief_engineer") or ""),
+            profile=coerce_profile(data.get("profile")),
         )
+
+
+def coerce_profile(value: Any) -> dict[str, Any]:
+    """A profile from a document: a mapping, or JSON text from a flat backend."""
+    if isinstance(value, dict):
+        return dict(value)
+    if isinstance(value, str) and value.strip():
+        try:
+            parsed = json.loads(value)
+        except ValueError:
+            return {}
+        return dict(parsed) if isinstance(parsed, dict) else {}
+    return {}
 
 
 @dataclass

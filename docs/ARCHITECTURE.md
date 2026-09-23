@@ -12,6 +12,7 @@ document needs fixing.
 - [3. A request, end to end](#3-a-request-end-to-end)
 - [4. The ontology drives everything](#4-the-ontology-drives-everything)
 - [5. The data model](#5-the-data-model)
+- [5a. Projects and their configuration](#5a-projects-and-their-configuration)
 - [6. Storage](#6-storage)
 - [7. The graph store](#7-the-graph-store)
 - [8. KPI engine](#8-kpi-engine)
@@ -275,6 +276,67 @@ The diagram shows the principal relations; the ontology file declares 30.
   - OAD, OPD and OSD are example content, not ontology types, so another
     programme can describe its own architecture views the same way.
 
+## 5a. Projects and their configuration
+
+A project does not have to use the whole vocabulary. Its **profile**, stored in the project header
+(`ProjectInfo.profile`), names the element types and relations it uses:
+
+```json
+{"preset": "light", "node_types": ["Activity", "Milestone", …], "edge_types": ["DELIVERS_AT", …]}
+```
+
+- **Presets are declared in the ontology file** under `profiles:`, like everything else about the
+  vocabulary.
+  - *Light* lists eight element types and takes every relation between them.
+  - *Full* lists nothing and means everything.
+- **Storage form:**
+  - A Full project is stored as `{"preset": "full"}`, so types added to the ontology later appear
+    in it.
+  - Every other profile is stored with explicit lists (`normalise_profile`), so editing a preset
+    in the ontology never changes a project that already exists.
+- **Resolution:**
+  - The workspace keeps the full **base ontology**. The store gets
+    `effective_ontology(base, document)`: the base passed through `Ontology.restricted()`.
+  - `restricted()` keeps the selected types and their abstract ancestors.
+  - A kept relation's domain and range are cut to the kept types. A relation left with an empty
+    end is dropped, because an empty end would mean *unconstrained*.
+  - Trace paths through a dropped relation are dropped.
+- **Consequences:**
+  - Everything reads the ontology through the store, so the forms, relation picker, Graph filters,
+    Tree, Ontology page, validation and KPIs all follow with no view-specific code.
+  - A KPI whose role now points at a missing type reports `available: false`.
+- **Safety:**
+  - `Workspace.set_profile()` refuses to switch off a type or relation that has elements (409,
+    naming them). The picker shows those locked.
+  - `effective_ontology` also widens the profile by whatever the document holds, so data can never
+    be hidden by its own profile — after an import, for example.
+- **Storage:** the profile is part of the header, so it is stored by every backend:
+  - JSON and SQLite store the header as JSON;
+  - RDF adds one `setm:profile` literal;
+  - spreadsheets add one Project-sheet row.
+
+```mermaid
+flowchart LR
+    ui["New project / Customise…<br/>(configure.js type picker)"] -->|"POST /api/projects<br/>PUT /api/project/configuration"| norm["normalise_profile()<br/>preset → explicit lists"]
+    norm --> header["ProjectInfo.profile<br/>(saved with the project)"]
+    header --> eff["effective_ontology()<br/>base.restricted(profile ∪ types in use)"]
+    base["base ontology<br/>(file + overlays, profiles:)"] --> eff
+    eff --> store["GraphStore.ontology"]
+    store --> everything["forms · picker · filters · tree ·<br/>validation · KPIs"]
+```
+
+**Projects** (`setm/projects.py`) are storage targets in the `projects_dir` folder:
+- **Create:** writes `<slug>.json` or `<slug>.db`. The slug is derived from the name, and the path
+  is checked to stay inside the folder.
+- **List:** shows the open project (from memory, including unsaved edits), every project in the
+  folder, and recently opened local projects.
+  - Recents are kept in `.recent.json`, so switching away from the default `data/project.json`
+    keeps the way back.
+- **Open:** runs `Workspace.reconfigure` against the chosen target, with the same unsaved-work
+  guard as before.
+  - The browser can only open a project the list offers; it never supplies a path.
+  - "Open next time" records the storage target in `setm.toml`.
+
 ## 6. Storage
 
 A storage target is a URI, resolved through a registry of schemes.
@@ -492,6 +554,7 @@ runs under uvicorn for TLS and process management, with one writer process.
 | To add… | Change | Nothing else, because… |
 |---|---|---|
 | An element or relation type, a property, an enum value | the ontology YAML, or an overlay | routes, forms, validation, trace and export are all generic |
+| A project preset (like Light) | a `profiles:` entry in the ontology YAML | the New project dialog and `setm init --profile` read the list |
 | A KPI | a function in `kpi/metrics.py`, plus a `DEFAULT_TARGETS` entry | the page renders whatever the report returns; add a `roles` entry if the KPI needs a new concept |
 | A storage backend | a `StorageBackend` subclass and `register("scheme", …)` | the workspace, the settings page and `test-storage` go through the registry |
 | An API route | an `@router.route(...)` handler in `routes.py` | both servers, the security guard and telemetry wrap every route |
