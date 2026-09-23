@@ -104,6 +104,12 @@ export const api = {
 
   project: () => request('GET', '/api/project'),
   updateProject: (values) => request('PATCH', '/api/project', { body: values }),
+  configuration: () => request('GET', '/api/project/configuration'),
+  setConfiguration: (profile) => request('PUT', '/api/project/configuration', { body: profile }),
+
+  projects: () => request('GET', '/api/projects'),
+  createProject: (body) => request('POST', '/api/projects', { body }),
+  openProject: (storage, force) => request('POST', '/api/projects/open', { body: { storage, force } }),
 
   graph: (query) => request('GET', '/api/graph', { query }),
   nodes: (query) => request('GET', '/api/nodes', { query }),

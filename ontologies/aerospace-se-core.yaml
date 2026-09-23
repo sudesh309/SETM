@@ -893,6 +893,26 @@ trace_paths:
   objective_to_tools: [~SUPPORTS, USES_TOOL]
   method_to_tools: [IMPLEMENTED_BY_TOOL]
 
+# Project profiles: the starting points offered when a project is created in the
+# interface. A profile lists the element types a project uses; unless it also
+# lists edge_types, every relation whose two ends are listed comes with them.
+# A profile with no node_types is the whole ontology. A project may then add or
+# remove types for itself ("custom"); nothing here changes existing projects.
+profiles:
+  light:
+    label: Light
+    description: >-
+      The essentials of planning and tracing: why the work exists, what is done,
+      who owns it and which gate it lands on. Right for a small team or a first
+      project.
+    node_types: [Objective, Requirement, Risk, Activity, Deliverable, Person, WorkPackage, Milestone]
+  full:
+    label: Full
+    description: >-
+      Every element type and relation in the ontology, including processes,
+      methods, tools and data exchange, system architecture, parameters and
+      assumptions. Types added to the ontology later appear automatically.
+
 # Semantic roles: how the generic KPI engine finds this ontology's concepts.
 # Rename a type above and update it here; no code changes are needed.
 roles:

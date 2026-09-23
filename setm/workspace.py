@@ -10,7 +10,7 @@ import threading
 from typing import Any
 
 from .config import Settings
-from .errors import ConflictError, StorageError
+from .errors import ConflictError, StorageError, ValidationError
 from .graph.store import GraphStore
 from .kpi.telemetry import telemetry
 from .model import GraphDocument
@@ -21,16 +21,53 @@ from .storage.base import SaveResult, StorageBackend
 from .storage.registry import load_builtin_backends, open_storage
 
 
+def effective_ontology(base: Ontology, document: GraphDocument) -> Ontology:
+    """The ontology a project works with: the base, limited to its profile.
+
+    Widened by whatever the document already contains, so data can never be
+    hidden by its own profile -- after an import, say, or an ontology edit.
+    """
+    selection = base.resolve_profile(document.project.profile, strict=False)
+    if selection is None:
+        return base
+    nodes, edges = selection
+    nodes |= {n.type for n in document.nodes if n.type in base.node_types}
+    edges |= {e.type for e in document.edges if e.type in base.edge_types}
+    return base.restricted(nodes, edges)
+
+
+def normalise_profile(base: Ontology, profile: dict[str, Any] | None) -> dict[str, Any]:
+    """The form a profile is stored in: a preset name plus explicit lists.
+
+    Full is stored without lists, so types added to the ontology later appear.
+    Every other preset is stored resolved, so editing the preset in the
+    ontology file never changes a project that already exists.
+    """
+    profile = dict(profile or {})
+    preset = str(profile.get("preset") or ("custom" if "node_types" in profile else "full"))
+    selection = base.resolve_profile(profile)
+    if selection is None:
+        return {"preset": "full"}
+    nodes, edges = selection
+    if not nodes:
+        raise ValidationError("A project needs at least one element type")
+    return {"preset": preset, "node_types": sorted(nodes), "edge_types": sorted(edges)}
+
+
 class Workspace:
     def __init__(
         self,
         store: GraphStore,
         backend: StorageBackend,
         settings: Settings,
+        base_ontology: Ontology | None = None,
     ) -> None:
         self.store = store
         self.backend = backend
         self.settings = settings
+        #: The full ontology as loaded from file. The store works with a copy
+        #: restricted to the project's profile (see effective_ontology).
+        self.base_ontology = base_ontology or store.ontology
         self._save_lock = threading.Lock()
         self.last_save: SaveResult | None = None
         self._refresh_gauges()
@@ -54,9 +91,9 @@ class Workspace:
             document.ontology_id = ontology.id
             document.ontology_version = ontology.version
 
-        store = GraphStore(document, ontology, strict=settings.strict)
+        store = GraphStore(document, effective_ontology(ontology, document), strict=settings.strict)
         telemetry.increment("workspace.opened")
-        return cls(store, backend, settings)
+        return cls(store, backend, settings, base_ontology=ontology)
 
     # -- persistence --------------------------------------------------------
     @property
@@ -90,7 +127,7 @@ class Workspace:
         with self._save_lock:
             with telemetry.track("storage.load", backend=self.backend.scheme):
                 document = self.backend.load()
-            self.store = GraphStore(document, self.ontology, strict=self.settings.strict)
+            self.store = self._build_store(document)
             telemetry.increment("workspace.reloads")
             self._refresh_gauges()
             return self.store
@@ -125,7 +162,8 @@ class Workspace:
                 document.ontology_version = ontology.version
 
             self.backend = backend
-            self.store = GraphStore(document, ontology, strict=self.settings.strict)
+            self.base_ontology = ontology
+            self.store = self._build_store(document)
             self.last_save = None
             telemetry.increment("workspace.reconfigured")
             self._refresh_gauges()
@@ -154,7 +192,8 @@ class Workspace:
             # landing in between cannot be silently left behind in it.
             with self.store.reading():
                 document = self.store.snapshot()
-                self.store = GraphStore(document, ontology, strict=self.settings.strict)
+                self.base_ontology = ontology
+                self.store = self._build_store(document)
             self.backend.bind_ontology(ontology)
             telemetry.increment("ontology.reloads")
             return ontology
@@ -171,11 +210,52 @@ class Workspace:
                 current.edges += [e for e in document.edges if e.id not in known_edges]
                 current.revision += 1
                 document = current
-            self.store = GraphStore(document, self.ontology, strict=self.settings.strict)
+            self.store = self._build_store(document)
             self.store.dirty = True
             telemetry.increment("workspace.imports")
             self._refresh_gauges()
             return {"nodes": self.store.node_count, "edges": self.store.edge_count, "merged": merge}
+
+    def _build_store(self, document: GraphDocument) -> GraphStore:
+        return GraphStore(document, effective_ontology(self.base_ontology, document), strict=self.settings.strict)
+
+    # -- project profile ----------------------------------------------------
+    def types_in_use(self) -> tuple[dict[str, int], dict[str, int]]:
+        """How many elements and relations of each type the graph holds."""
+        stats = self.store.stats()
+        return dict(stats["nodes_by_type"]), dict(stats["edges_by_type"])
+
+    def set_profile(self, profile: dict[str, Any]) -> dict[str, Any]:
+        """Change which element types and relations this project uses.
+
+        Anything already in use must stay: switching it off would leave elements
+        the project can no longer show, edit or validate.
+        """
+        stored = normalise_profile(self.base_ontology, profile)
+        with self._save_lock:
+            nodes_in_use, edges_in_use = self.types_in_use()
+            if stored.get("node_types") is not None:
+                kept_nodes, kept_edges = set(stored["node_types"]), set(stored["edge_types"])
+                # A relation is only really kept if both its ends survive.
+                restricted = self.base_ontology.restricted(kept_nodes, kept_edges)
+                blocked_nodes = {t: n for t, n in nodes_in_use.items() if t not in restricted.node_types}
+                blocked_edges = {t: n for t, n in edges_in_use.items() if t not in restricted.edge_types}
+                if blocked_nodes or blocked_edges:
+                    described = [f"{t} ({n} in use)" for t, n in {**blocked_nodes, **blocked_edges}.items()]
+                    raise ConflictError(
+                        "These are in use in this project and cannot be switched off: "
+                        + ", ".join(described) + ". Delete or retype those elements first.",
+                        in_use={"node_types": blocked_nodes, "edge_types": blocked_edges},
+                    )
+            with self.store.reading():
+                document = self.store.snapshot()
+                document.project.profile = stored
+                document.revision += 1
+                self.store = self._build_store(document)
+            self.store.dirty = True
+            telemetry.increment("workspace.profile_changed")
+            self._refresh_gauges()
+            return stored
 
     # -- reporting ----------------------------------------------------------
     def validate(self, *, strict: bool | None = None) -> dict[str, Any]:
@@ -198,6 +278,7 @@ class Workspace:
             "graph": self.store.stats(),
             "storage": {**self.backend.describe(), "health": backend_health},
             "ontology": {
+                "profile": self.store.project.profile.get("preset") or "full",
                 "id": self.ontology.id,
                 "version": self.ontology.version,
                 "source": self.ontology.source_path,

@@ -9,7 +9,7 @@ methods-and-tools team can maintain it without touching application code.
 from __future__ import annotations
 
 import re
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import Any, Iterable
 
 from ..errors import OntologyError
@@ -277,6 +277,9 @@ class Ontology:
     #: "activity" or "milestone" concept in an ontology that renamed them.
     roles: dict[str, str] = field(default_factory=dict)
     source_path: str = ""
+    #: Named project profiles ("light", "full", ...): which element types a
+    #: project uses. See resolve_profile() and restricted().
+    profiles: dict[str, dict[str, Any]] = field(default_factory=dict)
     #: Memoised type reasoning (see "type reasoning" below). An ontology is
     #: treated as immutable once built -- a reload builds a new object -- so the
     #: caches never need invalidating in normal use; invalidate_caches() exists
@@ -412,4 +415,103 @@ class Ontology:
             "trace_paths": {k: list(v) for k, v in self.trace_paths.items()},
             "roles": dict(self.roles),
             "source_path": self.source_path,
+            "profiles": {k: dict(v) for k, v in self.profiles.items()},
         }
+
+    # -- project profiles -----------------------------------------------------
+    # A project need not use the whole vocabulary. A profile names the element
+    # types and relations it does use; the store is then given restricted(...),
+    # and every form, picker, validator and KPI follows without knowing why.
+
+    def resolve_profile(
+        self, profile: dict[str, Any] | None, *, strict: bool = True
+    ) -> tuple[set[str], set[str]] | None:
+        """The element types and relations a profile selects, or None for "everything".
+
+        ``strict`` rejects names the ontology does not declare; opening a stored
+        project passes ``strict=False`` so an ontology edit cannot lock it out.
+
+        A profile either lists ``node_types`` (and optionally ``edge_types``) or
+        names a ``preset`` declared under ``profiles:`` in the ontology file. When
+        relations are not listed, every relation whose two ends are selected is
+        included.
+        """
+        profile = dict(profile or {})
+        preset = str(profile.get("preset") or "")
+        if "node_types" not in profile and preset:
+            if preset not in self.profiles:
+                raise OntologyError(
+                    f"Unknown profile '{preset}'. Declared: {', '.join(sorted(self.profiles)) or 'none'}"
+                )
+            profile = {**self.profiles[preset], "preset": preset}
+        if "node_types" not in profile:
+            return None  # full: the whole ontology, including types added later
+        nodes = {str(n) for n in profile.get("node_types") or []}
+        unknown = sorted(n for n in nodes if n not in self.node_types)
+        if unknown and strict:
+            raise OntologyError(f"Profile names unknown element types: {', '.join(unknown)}")
+        nodes -= set(unknown)  # lenient: a type since removed from the ontology file
+        if "edge_types" in profile and profile["edge_types"] is not None:
+            edges = {str(e) for e in profile["edge_types"]}
+            unknown = sorted(e for e in edges if e not in self.edge_types)
+            if unknown and strict:
+                raise OntologyError(f"Profile names unknown relations: {', '.join(unknown)}")
+            edges -= set(unknown)
+        else:
+            edges = {name for name, spec in self.edge_types.items() if self._ends_available(spec, nodes)}
+        return nodes, edges
+
+    def _ends_available(self, spec: "EdgeTypeSpec", nodes: set[str]) -> bool:
+        """Can this relation join two of the given types?"""
+        def side(allowed: list[str]) -> bool:
+            return not allowed or "*" in allowed or any(
+                self.is_a(n, a) for n in nodes for a in allowed
+            )
+        return side(spec.domain) and side(spec.range)
+
+    def restricted(self, node_types: Iterable[str], edge_types: Iterable[str]) -> "Ontology":
+        """A copy limited to the given element types and relations.
+
+        * The ``extends`` ancestors of a kept type are kept too (they are
+          abstract, so they add nothing a user can create).
+        * A kept relation's domain and range are pruned to kept types. One left
+          with an empty end is dropped: an empty list means *unconstrained*, so
+          keeping it would widen the rule rather than narrow it.
+        * Trace paths through a dropped relation are dropped. Roles are kept;
+          a role naming an absent type already resolves to "" and the KPIs that
+          need it report themselves unavailable.
+        """
+        keep: set[str] = set()
+        for name in node_types:
+            current: str | None = name
+            while current and current in self.node_types and current not in keep:
+                keep.add(current)
+                current = self.node_types[current].extends
+        wanted = set(edge_types)
+        kept_edges: dict[str, EdgeTypeSpec] = {}
+        for name, spec in self.edge_types.items():
+            if name not in wanted:
+                continue
+            domain = [d for d in spec.domain if d == "*" or d in keep]
+            rng = [r for r in spec.range if r == "*" or r in keep]
+            if (spec.domain and not domain) or (spec.range and not rng):
+                continue
+            kept_edges[name] = replace(spec, domain=domain, range=rng)
+        return Ontology(
+            id=self.id,
+            version=self.version,
+            title=self.title,
+            description=self.description,
+            namespace=self.namespace,
+            prefixes=dict(self.prefixes),
+            node_types={n: spec for n, spec in self.node_types.items() if n in keep},
+            edge_types=kept_edges,
+            trace_paths={
+                n: list(chain)
+                for n, chain in self.trace_paths.items()
+                if all(step.lstrip("~") in kept_edges for step in chain)
+            },
+            roles=dict(self.roles),
+            source_path=self.source_path,
+            profiles={k: dict(v) for k, v in self.profiles.items()},
+        )

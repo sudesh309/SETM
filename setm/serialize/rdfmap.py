@@ -16,10 +16,12 @@ Three directions are supported:
 
 from __future__ import annotations
 
+import json
+
 from typing import Any, Sequence
 from urllib.parse import quote, unquote
 
-from ..model import Edge, GraphDocument, Node, ProjectInfo, Provenance
+from ..model import Edge, GraphDocument, Node, ProjectInfo, Provenance, coerce_profile
 from ..ontology.schema import Ontology, PropertySpec
 from .turtle import (
     DCTERMS,
@@ -199,6 +201,8 @@ def document_to_triples(doc: GraphDocument, ontology: Ontology, *, data_ns: str 
     ]
     if doc.project.description:
         triples.append((project, iri(RDFS + "comment"), lit(doc.project.description)))
+    if doc.project.profile:
+        triples.append((project, iri(SETM_NS + "profile"), lit(json.dumps(doc.project.profile, sort_keys=True))))
 
     for node in doc.nodes:
         subject = iri(_node_iri(data_ns, node.id))
@@ -303,6 +307,7 @@ def triples_to_document(triples: Sequence[Triple], ontology: Ontology) -> GraphD
                 phase=str(literal_value(values.get(SETM_NS + "phase", [lit("")])[0])),
                 description=str(literal_value(values.get(RDFS + "comment", [lit("")])[0])),
                 chief_engineer=str(literal_value(values.get(SETM_NS + "chiefEngineer", [lit("")])[0])),
+                profile=coerce_profile(literal_value(values.get(SETM_NS + "profile", [lit("")])[0])),
             )
             if SETM_NS + "ontologyId" in values:
                 doc.ontology_id = str(literal_value(values[SETM_NS + "ontologyId"][0]))

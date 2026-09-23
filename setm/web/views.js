@@ -3,6 +3,7 @@
 // and returns nothing -- state lives in app.js.
 
 import { download } from './api.js';
+import { describeProfile } from './configure.js';
 import { h, formatValue } from './forms.js';
 
 // A button that downloads through the API client, so the request carries the
@@ -440,6 +441,18 @@ export function renderOntology(container, ontology, actions) {
       + 'application — edit it, reload, and every form, validation rule and KPI follows.',
     ),
   );
+
+  if (actions.configuration) {
+    container.append(h('div', { class: 'card config-card' }, [
+      h('div', { class: 'card-head' }, [
+        h('h3', { text: 'This project\'s configuration' }),
+        h('button', { class: 'btn btn-primary', text: 'Customise…', onClick: actions.onCustomise }),
+      ]),
+      h('div', { class: 'config-line', text: describeProfile(actions.configuration) }),
+      h('p', { class: 'muted', text: 'The element types and relations this project uses, from the ontology below. '
+        + 'Forms, the graph, the tree and the KPIs show only these.' }),
+    ]));
+  }
 
   const sourceCard = h('div', { class: 'card' }, [
     h('div', { class: 'card-head' }, [h('h3', { text: 'Source' })]),
