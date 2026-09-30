@@ -163,21 +163,28 @@ def get_ontology(workspace: Workspace, request: Request) -> Response:
 
 @router.route("POST", "/api/ontology/reload")
 def reload_ontology(workspace: Workspace, request: Request) -> Response:
-    ontology = workspace.reload_ontology()
-    return Response(body={"reloaded": True, "ontology": ontology.to_dict()})
+    workspace.reload_ontology()  # the master; the project keeps its own copy
+    return Response(body={"reloaded": True, "ontology": workspace.ontology.to_dict()})
 
 
 @router.route("GET", "/api/ontology/export")
 def export_ontology(workspace: Workspace, request: Request) -> Response:
     fmt = request.get("format", "owl").lower()
+    # The project's own ontology by default; ?which=master for the master.
+    which = request.get("which", "project")
+    ontology = workspace.master if which == "master" else workspace.ontology
+    stem = f"{ontology.id}-master" if which == "master" else f"{ontology.id}-project"
     if fmt in ("owl", "ttl", "turtle", "rdf"):
         return Response(
-            body=ontology_to_owl(workspace.ontology),
+            body=ontology_to_owl(ontology),
             content_type="text/turtle",
-            headers={"Content-Disposition": f'attachment; filename="{workspace.ontology.id}.ttl"'},
+            headers={"Content-Disposition": f'attachment; filename="{stem}.ttl"'},
         )
     if fmt == "json":
-        return Response(body=_as_source(workspace.ontology))
+        return Response(
+            body=_as_source(ontology),
+            headers={"Content-Disposition": f'attachment; filename="{stem}.json"'},
+        )
     raise ValidationError(f"Unsupported ontology export format '{fmt}' (use owl or json)")
 
 
@@ -343,82 +350,16 @@ def patch_project(workspace: Workspace, request: Request) -> Response:
 
 
 # --------------------------------------------------------------------------- #
-# Projects and their configuration (profile)
+# Projects
 # --------------------------------------------------------------------------- #
 
 
-def _configuration(workspace: Workspace) -> dict[str, Any]:
-    """Everything the type picker renders from: presets, the full catalogue, usage."""
-    base = workspace.base_ontology
-    nodes_in_use, edges_in_use = workspace.types_in_use()
-    concrete = [t for t in base.concrete_node_types()]
-    all_nodes = [t.name for t in concrete]
-
-    def preset(name: str, data: dict[str, Any]) -> dict[str, Any]:
-        selection = base.resolve_profile({"preset": name})
-        nodes, edges = selection if selection else (set(all_nodes), set(base.edge_types))
-        return {
-            "name": name,
-            "label": str(data.get("label") or name.title()),
-            "description": str(data.get("description") or ""),
-            "node_types": [n for n in all_nodes if n in nodes],
-            "edge_types": [e for e in base.edge_types if e in edges],
-        }
-
-    presets = [preset(name, data) for name, data in base.profiles.items()]
-    if not any(p["name"] == "full" for p in presets):
-        presets.append(preset("full", {"label": "Full", "description": "Every element type and relation."}))
-    effective = workspace.ontology
-    return {
-        "profile": workspace.store.project.profile or {"preset": "full"},
-        "active": {
-            "node_types": [t.name for t in effective.concrete_node_types()],
-            "edge_types": list(effective.edge_types),
-        },
-        "presets": presets,
-        "catalogue": {
-            "node_types": [
-                {
-                    "name": t.name,
-                    "label": t.label,
-                    "category": t.category,
-                    "description": t.description,
-                    "color": t.color,
-                    "in_use": nodes_in_use.get(t.name, 0),
-                }
-                for t in concrete
-            ],
-            "edge_types": [
-                {
-                    "name": spec.name,
-                    "label": spec.label,
-                    "description": spec.description,
-                    "question": spec.question,
-                    "domain": list(spec.domain),
-                    "range": list(spec.range),
-                    "in_use": edges_in_use.get(spec.name, 0),
-                }
-                for spec in base.edge_types.values()
-            ],
-        },
-    }
-
-
-@router.route("GET", "/api/project/configuration")
-def get_configuration(workspace: Workspace, request: Request) -> Response:
-    """Which element types and relations this project uses, and what it could use."""
-    return Response(body=_configuration(workspace))
-
-
-@router.route("PUT", "/api/project/configuration")
-def put_configuration(workspace: Workspace, request: Request) -> Response:
-    """Change the project's element types and relations (its profile)."""
-    body = request.json_body()
-    profile = {k: body[k] for k in ("preset", "node_types", "edge_types") if k in body}
-    stored = workspace.set_profile(profile)
-    workspace.autosave("change project configuration", request.actor or workspace.settings.actor)
-    telemetry.increment("projects.configured", preset=stored.get("preset", "full"))
-    return Response(body=_configuration(workspace))
+def _document_from_body(body: dict[str, Any]) -> GraphDocument | None:
+    if "document" not in body or body["document"] in (None, ""):
+        return None
+    if not isinstance(body["document"], dict):
+        raise ValidationError("'document' must be a SETM project file (a JSON object)")
+    return GraphDocument.from_dict(body["document"])
 
 
 @router.route("GET", "/api/projects")
@@ -428,7 +369,8 @@ def list_projects_route(workspace: Workspace, request: Request) -> Response:
     return Response(
         body={
             "projects_dir": str(projects_dir(workspace)),
-            "unsaved_changes": workspace.store.dirty,
+            "project_open": workspace.is_open,
+            "unsaved_changes": workspace.is_open and workspace.store.dirty,
             "projects": list_projects(workspace),
         }
     )
@@ -436,7 +378,13 @@ def list_projects_route(workspace: Workspace, request: Request) -> Response:
 
 @router.route("POST", "/api/projects")
 def create_project_route(workspace: Workspace, request: Request) -> Response:
-    """Create a project in the projects folder and, unless told not to, open it."""
+    """Create a project in the projects folder and, unless told not to, open it.
+
+    Starts empty, from ``example`` (a worked example's name) or from
+    ``document`` (an imported project file). ``preset``/``node_types``/
+    ``edge_types`` choose from the master; ``additions`` adds new element
+    types and relations of the project's own.
+    """
     from ..projects import create_project, open_project
 
     body = request.json_body()
@@ -448,16 +396,17 @@ def create_project_route(workspace: Workspace, request: Request) -> Response:
         phase=str(body.get("phase") or ""),
         description=str(body.get("description") or ""),
         chief_engineer=str(body.get("chief_engineer") or ""),
-        profile=profile,
+        profile=profile or None,
+        additions=body.get("additions") if isinstance(body.get("additions"), dict) else None,
+        document=_document_from_body(body),
+        example=str(body["example"]) if body.get("example") else None,
         fmt=str(body.get("format") or "json"),
         actor=request.actor or workspace.settings.actor,
     )
     telemetry.increment("projects.created", preset=created["preset"])
     opened: dict[str, Any] = {}
     if body.get("open", True):
-        opened = open_project(
-            workspace, created["storage"], force=bool(body.get("force")), remember=bool(body.get("remember", True))
-        )
+        opened = open_project(workspace, created["storage"], force=bool(body.get("force")))
     return Response(status=201, body={"created": created, "opened": opened})
 
 
@@ -469,8 +418,146 @@ def open_project_route(workspace: Workspace, request: Request) -> Response:
     storage = str(body.get("storage") or "")
     if not storage:
         raise ValidationError("Say which project to open ('storage', as listed by GET /api/projects)")
-    result = open_project(workspace, storage, force=bool(body.get("force")), remember=bool(body.get("remember", True)))
-    return Response(body=result)
+    return Response(body=open_project(workspace, storage, force=bool(body.get("force"))))
+
+
+# --------------------------------------------------------------------------- #
+# Ontologies: the master, the project's own copy, compare and merge
+# --------------------------------------------------------------------------- #
+
+
+@router.route("GET", "/api/ontologies")
+def ontologies_summary(workspace: Workspace, request: Request) -> Response:
+    return Response(body=workspace.describe_ontologies())
+
+
+@router.route("GET", "/api/ontologies/master")
+def master_ontology(workspace: Workspace, request: Request) -> Response:
+    return Response(body={**workspace.master.to_dict(), "summary": workspace.describe_ontologies()["master"]})
+
+
+@router.route("POST", "/api/ontologies/master/reload")
+def reload_master(workspace: Workspace, request: Request) -> Response:
+    master = workspace.reload_ontology()
+    return Response(body={"reloaded": True, "version": master.version, "summary": workspace.describe_ontologies()})
+
+
+@router.route("GET", "/api/ontologies/catalogue")
+def ontology_catalogue(workspace: Workspace, request: Request) -> Response:
+    """What a new project can choose from: the master's presets and types."""
+    master = workspace.master
+    concrete = [t.name for t in master.concrete_node_types()]
+
+    def preset(name: str, data: dict[str, Any]) -> dict[str, Any]:
+        selection = master.resolve_profile({"preset": name})
+        nodes, edges = selection if selection else (set(concrete), set(master.edge_types))
+        return {
+            "name": name,
+            "label": str(data.get("label") or name.title()),
+            "description": str(data.get("description") or ""),
+            "node_types": [n for n in concrete if n in nodes],
+            "edge_types": [e for e in master.edge_types if e in edges],
+        }
+
+    presets = [preset(name, data) for name, data in master.profiles.items()]
+    if not any(p["name"] == "full" for p in presets):
+        presets.append(preset("full", {"label": "Full", "description": "Every element type and relation."}))
+    nodes_in_use, edges_in_use = workspace.types_in_use() if workspace.is_open else ({}, {})
+    return Response(
+        body={
+            "presets": presets,
+            "catalogue": {
+                "node_types": [
+                    {"name": t.name, "label": t.label, "category": t.category, "description": t.description,
+                     "color": t.color, "in_use": nodes_in_use.get(t.name, 0)}
+                    for t in master.concrete_node_types()
+                ],
+                "edge_types": [
+                    {"name": e.name, "label": e.label, "description": e.description, "question": e.question,
+                     "domain": list(e.domain), "range": list(e.range), "in_use": edges_in_use.get(e.name, 0)}
+                    for e in master.edge_types.values()
+                ],
+            },
+        }
+    )
+
+
+@router.route("GET", "/api/ontologies/compare")
+def compare_ontologies_route(workspace: Workspace, request: Request) -> Response:
+    workspace.require_open()
+    return Response(body={**workspace.compare_ontologies(), "ontologies": workspace.describe_ontologies()})
+
+
+@router.route("POST", "/api/ontologies/merge")
+def merge_ontologies_route(workspace: Workspace, request: Request) -> Response:
+    """Copy element types and relations to the master, or from it to the project."""
+    body = request.json_body()
+    items = body.get("items") or []
+    if not isinstance(items, list) or not items:
+        raise ValidationError("Choose at least one element type or relation to copy")
+    result = workspace.merge_ontology(str(body.get("direction") or ""), items, dry_run=bool(body.get("dry_run")))
+    if result["applied"] and result["direction"] == "to_project":
+        workspace.autosave("merge from the master ontology", request.actor or workspace.settings.actor)
+    telemetry.increment("ontology.merges", direction=result["direction"], applied=str(result["applied"]).lower())
+    return Response(body={**result, "compare": workspace.compare_ontologies()})
+
+
+_PROJECT_KINDS = {"element-types": "element_type", "relations": "relation"}
+
+
+def _project_ontology_change(workspace: Workspace, request: Request, source: dict[str, Any], message: str) -> Response:
+    workspace.change_project_ontology(source)
+    workspace.autosave(message, request.actor or workspace.settings.actor)
+    return Response(body={"ontology": workspace.ontology.to_dict(), "compare": workspace.compare_ontologies()["summary"]})
+
+
+@router.route("POST", "/api/project/ontology/{kind}")
+def add_project_type(workspace: Workspace, request: Request) -> Response:
+    """Add an element type or relation of the project's own."""
+    from ..ontology import project as project_ontology
+
+    workspace.require_open()
+    kind = _PROJECT_KINDS.get(request.params["kind"])
+    body = request.json_body()
+    if kind == "element_type":
+        source, name = project_ontology.upsert_element_type(workspace.project_source, body, master=workspace.master)
+    elif kind == "relation":
+        source, name = project_ontology.upsert_relation(workspace.project_source, body, master=workspace.master)
+    else:
+        raise NotFoundError("Use element-types or relations")
+    response = _project_ontology_change(workspace, request, source, f"add {kind.replace('_', ' ')} {name}")
+    response.status = 201
+    response.body["name"] = name
+    return response
+
+
+@router.route("PUT", "/api/project/ontology/{kind}/{name}")
+def edit_project_type(workspace: Workspace, request: Request) -> Response:
+    from ..ontology import project as project_ontology
+
+    workspace.require_open()
+    kind = _PROJECT_KINDS.get(request.params["kind"])
+    name = request.params["name"]
+    body = request.json_body()
+    if kind == "element_type":
+        source, _ = project_ontology.upsert_element_type(workspace.project_source, body, existing=name)
+    elif kind == "relation":
+        source, _ = project_ontology.upsert_relation(workspace.project_source, body, existing=name)
+    else:
+        raise NotFoundError("Use element-types or relations")
+    return _project_ontology_change(workspace, request, source, f"change {kind.replace('_', ' ')} {name}")
+
+
+@router.route("DELETE", "/api/project/ontology/{kind}/{name}")
+def remove_project_type(workspace: Workspace, request: Request) -> Response:
+    from ..ontology import project as project_ontology
+
+    workspace.require_open()
+    kind = _PROJECT_KINDS.get(request.params["kind"])
+    if kind is None:
+        raise NotFoundError("Use element-types or relations")
+    source = project_ontology.remove(workspace.project_source, kind, request.params["name"])
+    return _project_ontology_change(workspace, request, source, f"remove {kind.replace('_', ' ')} {request.params['name']}")
 
 
 # --------------------------------------------------------------------------- #
@@ -894,15 +981,26 @@ def list_examples(workspace: Workspace, request: Request) -> Response:
 
 @router.route("POST", "/api/examples/load")
 def load_example(workspace: Workspace, request: Request) -> Response:
-    """Replace the current graph with a freshly-built worked example."""
+    """Load a worked example as a new project, and open it.
+
+    It never overwrites the project that is open: the example gets its own
+    file in the projects folder, so the way back is one click on the start page.
+    """
+    from ..projects import create_project, open_project
+
     body = request.json_body()
     name = str(body.get("name") or "")
     if name not in EXAMPLES:
         raise ValidationError(f"Unknown example '{name}'. Try: {', '.join(EXAMPLES)}")
-    document = EXAMPLES[name]["build"](workspace.ontology)
-    result = workspace.import_document(document, merge=False, actor=request.actor or workspace.settings.actor)
-    workspace.autosave(f"load example: {name}", request.actor or workspace.settings.actor)
-    return Response(body={**result, "validation": workspace.validate()})
+    created = create_project(workspace, name="", example=name, actor=request.actor or workspace.settings.actor)
+    opened = open_project(workspace, created["storage"], force=bool(body.get("force")))
+    return Response(body={
+        "created": created,
+        "opened": opened,
+        "nodes": workspace.store.node_count,
+        "edges": workspace.store.edge_count,
+        "validation": workspace.validate(),
+    })
 
 
 def error_response(exc: Exception) -> Response:
@@ -919,6 +1017,16 @@ def error_response(exc: Exception) -> Response:
     )
 
 
+#: Routes that act on the open project. On the start page, before anything is
+#: open, they answer 409 "No project is open" instead of touching a placeholder.
+PROJECT_ROUTES = frozenset({
+    "get_project", "patch_project", "get_graph", "list_nodes", "create_node", "get_node", "patch_node",
+    "delete_node", "trace_node", "node_context", "node_report", "node_impact", "list_edges", "create_edge",
+    "get_edge", "patch_edge", "delete_edge", "find_paths", "board_view", "trace_path_view", "validate",
+    "kpi", "save", "reload", "export", "import_graph",
+})
+
+
 def dispatch(workspace: Workspace, request: Request) -> Response:
     """Resolve and run a route, converting SETM errors into JSON responses."""
     try:
@@ -927,6 +1035,8 @@ def dispatch(workspace: Workspace, request: Request) -> Response:
             raise NotFoundError(f"No API route for {request.method} {request.path}")
         handler, params, name = resolved
         request.params = params
+        if name in PROJECT_ROUTES:
+            workspace.require_open()
         with telemetry.track("http.request", route=name):
             telemetry.increment("http.requests", route=name)
             return handler(workspace, request)

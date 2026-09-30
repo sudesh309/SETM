@@ -12,7 +12,7 @@ document needs fixing.
 - [3. A request, end to end](#3-a-request-end-to-end)
 - [4. The ontology drives everything](#4-the-ontology-drives-everything)
 - [5. The data model](#5-the-data-model)
-- [5a. Projects and their configuration](#5a-projects-and-their-configuration)
+- [5a. Projects and their two ontologies](#5a-projects-and-their-two-ontologies)
 - [6. Storage](#6-storage)
 - [7. The graph store](#7-the-graph-store)
 - [8. KPI engine](#8-kpi-engine)
@@ -60,7 +60,7 @@ flowchart TB
         report["report.py<br/>single-element reports"]
         kpi["kpi/metrics.py · kpi/telemetry.py"]
         graphpkg["graph/store.py · graph/query.py · graph/_fastpath.py"]
-        ontology["ontology/schema.py · loader.py · validate.py"]
+        ontology["ontology/schema.py · loader.py · validate.py<br/>master.py · project.py · compare.py"]
         storage["storage/*<br/>URI registry + backends"]
         serialize["serialize/*<br/>Turtle/OWL, tables"]
         model["model.py<br/>Node · Edge · GraphDocument"]
@@ -91,7 +91,7 @@ flowchart TB
 | Module | Responsibility |
 |---|---|
 | `model.py` | `Node`, `Edge`, `GraphDocument`, `Provenance`: plain dataclasses with `to_dict` / `from_dict`. |
-| `ontology/` | Loads YAML or JSON (`extends_ontology`, overlays, property sets, inheritance), resolves it into an `Ontology`, and validates nodes, edges and whole documents against it. It also owns the **cached type-reasoning layer**: `is_a`, `_type_matches` and `expectations_for`. |
+| `ontology/` | Loads YAML or JSON (`extends_ontology`, overlays, property sets, inheritance), resolves it into an `Ontology`, and validates nodes, edges and whole documents against it. It also owns the **cached type-reasoning layer** (`is_a`, `_type_matches`, `expectations_for`), the **master ontology** file (`master.py`), a project's **own ontology** (`project.py`), and **compare and merge** between the two (`compare.py`). See [section 5a](#5a-projects-and-their-two-ontologies). |
 | `graph/store.py` | The in-memory indexed graph. Every read and write takes the store's lock. `reading()` holds several reads to one revision. |
 | `graph/query.py` | Traversals: trace, completeness, neighbourhood, paths, impact, cycles, orphans and induced subgraphs. |
 | `graph/_fastpath.py` | Breadth-first hot paths, with an optional Rust (`rust/setm_core`) implementation behind the same signatures. |
@@ -99,7 +99,7 @@ flowchart TB
 | `serialize/` | Turtle and OWL, both directions, plus spreadsheet tables. |
 | `kpi/metrics.py` | 13 project KPIs and 7 breakdowns, all found through ontology roles. |
 | `kpi/telemetry.py` | Counters, gauges and latency timers, shown on the System page and exposed at `/metrics`. |
-| `workspace.py` | One open project: opens storage, builds the store, autosaves, imports, reloads, reconfigures. |
+| `workspace.py` | One open project, or none (the blank start): holds the master ontology, opens storage, builds the store on the project's own ontology, autosaves, imports, reloads, reconfigures, and guards every change to the project ontology. |
 | `config.py` | Settings from defaults, `setm.toml`, the environment and flags, each recording which layer set it. The settings page is generated from `FIELD_SPECS`. |
 | `api/security.py` | Every request-level defence, shared by both servers. See [section 10](#10-security-model). |
 | `api/routes.py` | The route table. Handlers know nothing about sockets. |
@@ -152,14 +152,17 @@ and is never sent to the client.
 
 ## 4. The ontology drives everything
 
-The ontology file is maintained independently of the application. Change it,
-press *Reload ontology*, and every form, relation picker, validation rule,
-trace grouping and KPI follows. No code changes are needed.
+The vocabulary is data, maintained independently of the application. Every
+form, relation picker, validation rule, trace grouping and KPI reads it, so
+changing it needs no code changes. There are two of them — the organisation's
+**master** and each project's **own copy** — described in
+[section 5a](#5a-projects-and-their-two-ontologies); everything below applies to
+both, and the store always works on the project's.
 
 ```mermaid
 flowchart LR
     yaml["aerospace-se-core.yaml<br/>(+ overlays, extends_ontology)"] --> loader["loader.py<br/>merge · inherit · resolve"]
-    loader --> onto["Ontology<br/>node_types · edge_types · roles · trace_paths"]
+    loader --> onto["Ontology (the project's own)<br/>node_types · edge_types · roles · trace_paths"]
     onto --> forms["Generated forms<br/>(forms.js via GET /api/ontology)"]
     onto --> picker["Relation picker<br/>GET /api/edges/allowed"]
     onto --> valid["Validation on write<br/>validate.py"]
@@ -276,66 +279,95 @@ The diagram shows the principal relations; the ontology file declares 30.
   - OAD, OPD and OSD are example content, not ontology types, so another
     programme can describe its own architecture views the same way.
 
-## 5a. Projects and their configuration
+## 5a. Projects and their two ontologies
 
-A project does not have to use the whole vocabulary. Its **profile**, stored in the project header
-(`ProjectInfo.profile`), names the element types and relations it uses:
+### The master and the project ontology
 
-```json
-{"preset": "light", "node_types": ["Activity", "Milestone", …], "edge_types": ["DELIVERS_AT", …]}
-```
+- The **master ontology** is the organisation's shared vocabulary.
+  - It lives in the file named by the `master_ontology` setting (default
+    `./data/ontologies/master.json`), which SETM manages.
+  - Until that file exists, the master is the shipped ontology (`settings.ontology`, plus
+    overlays), which SETM never writes. The first copy into the master seeds the file.
+  - `save_master()` builds the new source first (so a broken master is never written), bumps the
+    patch version (`1.1.0` → `1.1.1`) and writes atomically (temporary file, then `os.replace`).
+- The **project ontology** is a complete, self-contained ontology source in authoring form, held
+  in `GraphDocument.ontology`. It travels with the data:
+  - JSON, memory, GitLab, Drive and HTTP get it through `GraphDocument.to_dict`;
+  - SQLite stores it under a `meta` key;
+  - RDF adds one `setm:projectOntology` JSON literal;
+  - spreadsheets add an `_Ontology` sheet, chunked at 40,000 characters to stay under the Sheets
+    cell limit.
+- `ontology_to_source()` and the loader round-trip exactly, so an ontology can be turned back into
+  a source, edited, and rebuilt.
+- **Resolution** (`project_ontology_for`):
+  - A document with its own ontology uses it.
+  - A document without one (an older project or a worked example) gets a snapshot of the master,
+    restricted by its Light/Full profile if it has one (`Ontology.restricted()` keeps the chosen
+    types and their abstract ancestors, cuts relation ends to them, and drops relations with an
+    empty end). The snapshot is saved with the next write.
+  - Either way, any type the data uses but the ontology lacks is pulled in from the master
+    (`with_types_in_use`), so data can never be hidden by its own ontology.
+- **Everything reads the ontology through the store**, so the forms, relation picker, Dashboard
+  filters, validation and KPIs all follow the project's vocabulary with no view-specific code. A
+  KPI whose role points at a missing type reports `available: false`.
 
-- **Presets are declared in the ontology file** under `profiles:`, like everything else about the
-  vocabulary.
-  - *Light* lists eight element types and takes every relation between them.
-  - *Full* lists nothing and means everything.
-- **Storage form:**
-  - A Full project is stored as `{"preset": "full"}`, so types added to the ontology later appear
-    in it.
-  - Every other profile is stored with explicit lists (`normalise_profile`), so editing a preset
-    in the ontology never changes a project that already exists.
-- **Resolution:**
-  - The workspace keeps the full **base ontology**. The store gets
-    `effective_ontology(base, document)`: the base passed through `Ontology.restricted()`.
-  - `restricted()` keeps the selected types and their abstract ancestors.
-  - A kept relation's domain and range are cut to the kept types. A relation left with an empty
-    end is dropped, because an empty end would mean *unconstrained*.
-  - Trace paths through a dropped relation are dropped.
-- **Consequences:**
-  - Everything reads the ontology through the store, so the forms, relation picker, Graph filters,
-    Tree, Ontology page, validation and KPIs all follow with no view-specific code.
-  - A KPI whose role now points at a missing type reports `available: false`.
-- **Safety:**
-  - `Workspace.set_profile()` refuses to switch off a type or relation that has elements (409,
-    naming them). The picker shows those locked.
-  - `effective_ontology` also widens the profile by whatever the document holds, so data can never
-    be hidden by its own profile — after an import, for example.
-- **Storage:** the profile is part of the header, so it is stored by every backend:
-  - JSON and SQLite store the header as JSON;
-  - RDF adds one `setm:profile` literal;
-  - spreadsheets add one Project-sheet row.
+### Changing the project ontology
+
+- `project.py` edits a source: `from_selection()` (the wizard's Light/Full/Custom choice),
+  `upsert_element_type()`, `upsert_relation()` and `remove()`.
+  - A new element type `extends: Thing`, so it inherits name and description; identifiers are
+    derived from the label (`test rig` → `TestRig`, `tested on` → `TESTED_ON`).
+  - A new relation gets the properties every relation shares, such as `weight`.
+  - A name already used by the master is refused, so the two can never disagree about what a name
+    means.
+- **Every change goes through one guard**, `Workspace.change_project_ontology()`: build the new
+  ontology, re-validate the whole graph against it, and refuse with a 409 listing the issues if it
+  would add a single error (removing a type in use, dropping a property elements have, narrowing a
+  relation's ends under existing relations). Only then is the store swapped and saved.
+
+### Compare and merge
+
+- `compare(project, master)` returns one item per element type and relation, with a status —
+  `project_only`, `master_only`, `differs` or `same` — and a field- and property-level diff. Both
+  sides are canonicalised through the loader first, so formatting never shows as a difference. A
+  relation's ends are compared only over types the project has.
+- `plan_merge(direction, items, …)` returns the new source plus what came with it:
+  - a relation brings the types at its ends, and a type brings its `extends` parent;
+  - `to_master` widens relation ends (union); `to_project` cuts them to the project's types;
+  - copying a type into the project keeps the project properties its elements use, and says so.
+- `POST /api/ontologies/merge` with `dry_run` returns that plan as a preview; without it,
+  `to_master` saves the master file and `to_project` goes through the guard above.
 
 ```mermaid
 flowchart LR
-    ui["New project / Customise…<br/>(configure.js type picker)"] -->|"POST /api/projects<br/>PUT /api/project/configuration"| norm["normalise_profile()<br/>preset → explicit lists"]
-    norm --> header["ProjectInfo.profile<br/>(saved with the project)"]
-    header --> eff["effective_ontology()<br/>base.restricted(profile ∪ types in use)"]
-    base["base ontology<br/>(file + overlays, profiles:)"] --> eff
-    eff --> store["GraphStore.ontology"]
-    store --> everything["forms · picker · filters · tree ·<br/>validation · KPIs"]
+    shipped["shipped ontology<br/>(YAML + overlays, profiles:)"] -->|"seeds, on first write"| master["master.json<br/>(master_ontology)"]
+    master -->|"wizard: Light / Full / Custom<br/>+ your own types"| projsrc["GraphDocument.ontology<br/>(saved with the project)"]
+    projsrc --> guard["change_project_ontology()<br/>re-validate the graph, 409 if worse"]
+    guard --> store["GraphStore.ontology"]
+    store --> everything["forms · picker · filters ·<br/>validation · KPIs"]
+    projsrc <-->|"compare() · plan_merge()<br/>to_master / to_project"| master
 ```
 
-**Projects** (`setm/projects.py`) are storage targets in the `projects_dir` folder:
-- **Create:** writes `<slug>.json` or `<slug>.db`. The slug is derived from the name, and the path
-  is checked to stay inside the folder.
-- **List:** shows the open project (from memory, including unsaved edits), every project in the
-  folder, and recently opened local projects.
-  - Recents are kept in `.recent.json`, so switching away from the default `data/project.json`
-    keeps the way back.
+### Projects
+
+**Projects** (`setm/projects.py`) are storage targets in the `projects_dir` folder.
+
+- **Blank start:** `setm serve` with no target starts on `Workspace.blank()` (`is_open=False`).
+  Project-scoped routes (`PROJECT_ROUTES` in `routes.py`) answer 409 "No project is open"; health,
+  projects, examples, ontologies and settings work. `setm serve <target>` opens that project
+  directly.
+- **Create** (`POST /api/projects`) builds the starting document — empty, a worked example, or an
+  imported file — and its ontology from the master selection plus any additions. It then writes
+  `<slug>.json` or `<slug>.db`, and opens it. The slug is derived from the name, and the path is
+  checked to stay inside the folder. Loading an example or importing a file on the start page is a
+  create, so it never overwrites the open project.
+- **List:** shows the open project (from memory, including unsaved edits), recently opened
+  projects, every project in the folder, and the configured `storage` file (so `setm demo`'s
+  project is always there).
+  - Recents are kept in `projects_dir/.recent.json`.
 - **Open:** runs `Workspace.reconfigure` against the chosen target, with the same unsaved-work
   guard as before.
   - The browser can only open a project the list offers; it never supplies a path.
-  - "Open next time" records the storage target in `setm.toml`.
 
 ## 6. Storage
 
@@ -426,14 +458,25 @@ flowchart TB
     app["app.js<br/>state, boot, switchView, dialogs,<br/>CRUD primitives, incremental sync"]
     app --> api["api.js<br/>request() + download()<br/>token and actor headers"]
     app --> forms["forms.js<br/>h() DOM builder,<br/>ontology-generated forms"]
-    app --> graphjs["graph.js<br/>canvas force layout<br/>(spatial-grid repulsion)"]
-    app --> views["views.js<br/>milestones, workload, tools,<br/>KPIs, ontology, system, settings"]
-    app --> tree["tree.js<br/>category tree, lazy trace"]
+    app --> home["home.js<br/>start page, new-project wizard"]
+    app --> mapjs["map.js<br/>Dashboard: five lanes,<br/>focus and depth"]
+    app --> onto["ontologies.js<br/>project · master · compare & merge"]
+    app --> views["views.js<br/>overview, milestones, workload,<br/>tools, KPIs, system, settings"]
+    home --> configure["configure.js<br/>Light / Full / Custom picker"]
     views --> forms
     views --> api
-    tree --> forms
+    mapjs --> forms
+    onto --> forms
 ```
 
+- **Start page first.** At boot the client asks `/api/health` whether a project is open. If not,
+  it shows the start page and hides the working tabs (`body.no-project`); creating, opening or
+  loading a project brings them back.
+- **The Dashboard is a map, not a network.** `map.js` lays elements out as cards in five fixed
+  columns by category (Why, What, How, Who, When). With nothing focused it draws no lines; hovering
+  a card draws only that card's links as SVG curves. Clicking focuses: a breadth-first walk to
+  depth 1 or 2 keeps only the neighbourhood, each neighbour card names the relation it was reached
+  through, and Back walks the focus history.
 - **Rendering is XSS-safe by construction.**
   - `h()` puts text in through `textContent` or text nodes.
   - It has no `innerHTML` path; that branch was removed as a latent risk even
@@ -554,10 +597,10 @@ runs under uvicorn for TLS and process management, with one writer process.
 | To add… | Change | Nothing else, because… |
 |---|---|---|
 | An element or relation type, a property, an enum value | the ontology YAML, or an overlay | routes, forms, validation, trace and export are all generic |
-| A project preset (like Light) | a `profiles:` entry in the ontology YAML | the New project dialog and `setm init --profile` read the list |
+| A project preset (like Light) | a `profiles:` entry in the ontology YAML | the new-project wizard and `setm init --profile` read the list |
 | A KPI | a function in `kpi/metrics.py`, plus a `DEFAULT_TARGETS` entry | the page renders whatever the report returns; add a `roles` entry if the KPI needs a new concept |
 | A storage backend | a `StorageBackend` subclass and `register("scheme", …)` | the workspace, the settings page and `test-storage` go through the registry |
 | An API route | an `@router.route(...)` handler in `routes.py` | both servers, the security guard and telemetry wrap every route |
-| A worked example | a builder function and an entry in `setm/examples.py` | the CLI `--example` choices and the Settings loader read the registry |
+| A worked example | a builder function and an entry in `setm/examples.py` | the CLI `--example` choices and the start page's Load read the registry |
 | A setting | a `FieldSpec` in `config.py` and a `Settings` field | the settings page, `setm.toml` and the environment layer are generated from it |
 | A view | a renderer in `views.js`, a tab and a section in `index.html`, and the CSS override list | `switchView` and the `actions` object are shared |

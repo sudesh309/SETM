@@ -13,27 +13,27 @@
     <span class="brand-mark">SETM</span>
     <span class="brand-sub">Systems Engineering Traceability Manager</span>
   </div>
-  <button class="project-badge" id="btn-projects" title="Projects: open another or create a new one" aria-haspopup="dialog">
+  <button class="project-badge" id="btn-projects" title="Projects: create, open or load one">
     <strong><span id="project-name">Loading…</span> <span class="caret" aria-hidden="true">▾</span></strong>
     <span id="project-meta" class="muted"></span>
   </button>
   <nav class="tabs" id="tabs">
-    <button class="tab active" data-view="overview">Overview</button>
+    <button class="tab" data-view="overview">Overview</button>
     <button class="tab" data-view="milestones">Milestones</button>
     <button class="tab" data-view="people">Workload</button>
     <button class="tab" data-view="tools">Tools</button>
-    <button class="tab" data-view="graph">Graph</button>
-    <button class="tab" data-view="tree">Tree</button>
+    <button class="tab" data-view="dashboard">Dashboard</button>
     <button class="tab" data-view="kpi">KPIs</button>
   </nav>
   <div class="topbar-actions">
     <span id="dirty-flag" class="pill hidden">unsaved</span>
     <button id="btn-save" class="btn btn-primary" title="Write the graph to storage">Save</button>
     <div class="menu-wrap">
-      <button id="btn-admin" class="btn btn-icon" title="Ontology, system and settings" aria-haspopup="true" aria-expanded="false">⚙</button>
+      <button id="btn-admin" class="btn btn-icon" title="Ontologies, system and settings" aria-haspopup="true" aria-expanded="false">⚙</button>
       <div class="menu hidden" id="admin-menu" role="menu">
-        <button class="menu-item" data-view="ontology" role="menuitem">Ontology</button>
-        <button class="menu-item" data-view="system" role="menuitem">System</button>
+        <button class="menu-item" data-view="home" role="menuitem">Projects</button>
+        <button class="menu-item project-only" data-view="ontologies" role="menuitem">Ontologies</button>
+        <button class="menu-item project-only" data-view="system" role="menuitem">System</button>
         <button class="menu-item" data-view="settings" role="menuitem">Settings</button>
       </div>
     </div>
@@ -43,13 +43,20 @@
 
 <main id="main">
   <!-- ------------------------------------------------------------------ -->
-  <section class="view active" id="view-overview"><div class="scroll-page" id="overview-body"></div></section>
+  <section class="view active" id="view-home"><div class="scroll-page" id="home-body"></div></section>
+  <section class="view" id="view-overview"><div class="scroll-page" id="overview-body"></div></section>
 
-  <section class="view" id="view-graph">
+  <section class="view" id="view-dashboard">
     <aside class="sidebar">
       <div class="panel">
-        <label class="field-label" for="search">Search</label>
-        <input id="search" type="search" placeholder="name, id, any property…" autocomplete="off">
+        <label class="field-label" for="search">Find</label>
+        <input id="search" type="search" placeholder="name, id, any property… (Enter to focus)" autocomplete="off">
+      </div>
+
+      <div class="panel">
+        <div class="panel-head"><span>Create</span></div>
+        <button class="btn btn-block" id="btn-new-node">+ New element</button>
+        <button class="btn btn-block" id="btn-new-edge">+ New relation</button>
       </div>
 
       <div class="panel">
@@ -75,55 +82,27 @@
           <button class="link" data-toggle-all="weight">all</button>
         </div>
         <div id="weight-filters" class="chip-row"></div>
-        <p class="hint">Every element and relation carries a weight, high by default.
-           Hide the low-weight ones to see what the programme said matters.</p>
-      </div>
-
-      <div class="panel">
-        <div class="panel-head"><span>Focus</span></div>
-        <label class="inline"><input type="checkbox" id="focus-mode"> Show only the selection's context</label>
-        <label class="inline">Depth
-          <input type="range" id="focus-depth" min="1" max="4" value="2">
-          <output id="focus-depth-value">2</output>
-        </label>
-        <label class="inline"><input type="checkbox" id="show-labels" checked> Labels</label>
-      </div>
-
-      <div class="panel">
-        <div class="panel-head"><span>Create</span></div>
-        <button class="btn btn-block" id="btn-new-node">New element…</button>
-        <button class="btn btn-block" id="btn-new-edge">New relation…</button>
-        <button class="btn btn-block subtle" id="btn-relayout">Re-run layout</button>
       </div>
 
       <div class="panel legend">
-        <div class="panel-head"><span>Reading the graph</span></div>
+        <div class="panel-head"><span>Reading the map</span></div>
         <p class="hint">
-          Click an element to inspect it. The inspector groups its links by the
-          question each answers: <em>who</em>, <em>when</em>, <em>why</em>,
-          <em>how</em>, <em>what</em>.
+          Columns answer <em>why</em>, <em>what</em>, <em>how</em>, <em>who</em>
+          and <em>when</em>. Hover an element to preview its links; click it to
+          focus on it and what it is connected to.
         </p>
       </div>
     </aside>
 
-    <div class="canvas-wrap">
-      <canvas id="graph-canvas"></canvas>
-      <div class="canvas-overlay">
-        <div class="stat-strip" id="graph-stats"></div>
-        <div class="zoom-controls">
-          <button class="btn btn-icon" id="zoom-in">+</button>
-          <button class="btn btn-icon" id="zoom-out">−</button>
-          <button class="btn btn-icon" id="zoom-fit" title="Fit to view">⤢</button>
-        </div>
-      </div>
-      <div id="tooltip" class="tooltip hidden"></div>
+    <div class="map-wrap">
+      <div class="stat-strip" id="graph-stats"></div>
+      <div id="map" class="map"></div>
     </div>
 
     <aside class="inspector" id="inspector">
       <div class="empty-state">
         <h3>Nothing selected</h3>
-        <p>Pick an element in the graph, or create one, to see its properties and
-           full traceability.</p>
+        <p>Click an element on the map to focus on it and see its properties and full traceability.</p>
       </div>
     </aside>
   </section>
@@ -132,9 +111,8 @@
   <section class="view" id="view-milestones"><div class="scroll-page" id="milestones-body"></div></section>
   <section class="view" id="view-people"><div class="scroll-page" id="people-body"></div></section>
   <section class="view" id="view-tools"><div class="scroll-page" id="tools-body"></div></section>
-  <section class="view" id="view-tree"><div class="scroll-page" id="tree-body"></div></section>
   <section class="view" id="view-kpi"><div class="scroll-page" id="kpi-body"></div></section>
-  <section class="view" id="view-ontology"><div class="scroll-page" id="ontology-body"></div></section>
+  <section class="view" id="view-ontologies"><div class="scroll-page" id="ontologies-body"></div></section>
   <section class="view" id="view-system"><div class="scroll-page" id="system-body"></div></section>
   <section class="view" id="view-settings"><div class="scroll-page" id="settings-body"></div></section>
 </main>

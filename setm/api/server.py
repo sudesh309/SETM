@@ -172,10 +172,13 @@ def serve(workspace: Workspace, settings: Settings, *, block: bool = True) -> Th
     url = f"http://{host}:{port}/"
     logger.info("SETM serving %s", url)
     print(f"\n  SETM is running at {url}")
-    print(f"  project : {workspace.store.project.name}")
-    print(f"  storage : {workspace.backend.scheme}:{workspace.backend.target}")
-    print(f"  ontology: {workspace.ontology.id} v{workspace.ontology.version}")
-    print(f"  graph   : {workspace.store.node_count} elements, {workspace.store.edge_count} relations")
+    if workspace.is_open:
+        print(f"  project : {workspace.store.project.name}")
+        print(f"  storage : {workspace.backend.scheme}:{workspace.backend.target}")
+        print(f"  graph   : {workspace.store.node_count} elements, {workspace.store.edge_count} relations")
+    else:
+        print("  project : none yet -- create, open or load one on the start page")
+    print(f"  master  : {workspace.master.id} v{workspace.master.version}")
     print("\n  Ctrl-C to stop\n")
 
     if settings.open_browser:

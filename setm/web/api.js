@@ -104,12 +104,19 @@ export const api = {
 
   project: () => request('GET', '/api/project'),
   updateProject: (values) => request('PATCH', '/api/project', { body: values }),
-  configuration: () => request('GET', '/api/project/configuration'),
-  setConfiguration: (profile) => request('PUT', '/api/project/configuration', { body: profile }),
-
   projects: () => request('GET', '/api/projects'),
   createProject: (body) => request('POST', '/api/projects', { body }),
   openProject: (storage, force) => request('POST', '/api/projects/open', { body: { storage, force } }),
+
+  ontologies: () => request('GET', '/api/ontologies'),
+  masterOntology: () => request('GET', '/api/ontologies/master'),
+  reloadMaster: () => request('POST', '/api/ontologies/master/reload', { body: {} }),
+  catalogue: () => request('GET', '/api/ontologies/catalogue'),
+  compareOntologies: () => request('GET', '/api/ontologies/compare'),
+  mergeOntologies: (direction, items, dryRun) => request('POST', '/api/ontologies/merge', { body: { direction, items, dry_run: dryRun } }),
+  addProjectType: (kind, body) => request('POST', `/api/project/ontology/${kind}`, { body }),
+  editProjectType: (kind, name, body) => request('PUT', `/api/project/ontology/${kind}/${encodeURIComponent(name)}`, { body }),
+  removeProjectType: (kind, name) => request('DELETE', `/api/project/ontology/${kind}/${encodeURIComponent(name)}`),
 
   graph: (query) => request('GET', '/api/graph', { query }),
   nodes: (query) => request('GET', '/api/nodes', { query }),
@@ -135,7 +142,7 @@ export const api = {
   testStorage: (body) => request('POST', '/api/settings/test-storage', { body }),
 
   examples: () => request('GET', '/api/examples'),
-  loadExample: (name) => request('POST', '/api/examples/load', { body: { name } }),
+  loadExample: (name, force) => request('POST', '/api/examples/load', { body: { name, force } }),
   importDocument: (document, merge) => request('POST', '/api/import', { body: { document, merge } }),
 
   kpi: (section) => request('GET', '/api/kpi', { query: { section } }),

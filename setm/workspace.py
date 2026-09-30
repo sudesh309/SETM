@@ -6,34 +6,56 @@ all drive this same object, so behaviour cannot drift between them.
 
 from __future__ import annotations
 
+import itertools
+import logging
 import threading
 from typing import Any
 
 from .config import Settings
-from .errors import ConflictError, StorageError, ValidationError
+from .errors import ConflictError, OntologyError, StorageError, ValidationError
 from .graph.store import GraphStore
 from .kpi.telemetry import telemetry
 from .model import GraphDocument
-from .ontology.loader import load_ontology
+from .ontology import project as project_ontology
+from .ontology.compare import compare as compare_ontologies, plan_merge, summary as compare_summary
+from .ontology.loader import build_ontology, ontology_to_source
+from .ontology.master import load_master, master_path, master_saved, save_master
 from .ontology.schema import Ontology
 from .ontology.validate import validate_document
 from .storage.base import SaveResult, StorageBackend
 from .storage.registry import load_builtin_backends, open_storage
 
+logger = logging.getLogger("setm.workspace")
+_blank_ids = itertools.count(1)
 
-def effective_ontology(base: Ontology, document: GraphDocument) -> Ontology:
-    """The ontology a project works with: the base, limited to its profile.
 
-    Widened by whatever the document already contains, so data can never be
-    hidden by its own profile -- after an import, say, or an ontology edit.
+def project_ontology_for(master: Ontology, document: GraphDocument) -> Ontology:
+    """The ontology a project works with: its own copy, from its document.
+
+    A document written before projects had their own ontology gets one now:
+    the master, restricted to its profile if it has one. Either way, any type
+    the data uses that the copy lacks is brought in from the master, so data
+    is never hidden by its own vocabulary. The result is kept on the document,
+    so the next save stores it.
     """
-    selection = base.resolve_profile(document.project.profile, strict=False)
-    if selection is None:
-        return base
-    nodes, edges = selection
-    nodes |= {n.type for n in document.nodes if n.type in base.node_types}
-    edges |= {e.type for e in document.edges if e.type in base.edge_types}
-    return base.restricted(nodes, edges)
+    source = document.ontology
+    if not source:
+        selection = master.resolve_profile(document.project.profile, strict=False)
+        nodes, edges = selection if selection else (None, None)
+        source = project_ontology.from_selection(master, nodes, edges)
+    source = project_ontology.with_types_in_use(
+        source, master, {n.type for n in document.nodes}, {e.type for e in document.edges}
+    )
+    try:
+        ontology = build_ontology(source)
+    except OntologyError as exc:
+        # A damaged copy must not lock the project out: fall back to the master.
+        logger.warning("Project ontology is invalid (%s); using a copy of the master", exc)
+        source = project_ontology.from_selection(master, None, None)
+        ontology = build_ontology(source)
+    document.ontology = source
+    ontology.source_path = "(project)"
+    return ontology
 
 
 def normalise_profile(base: Ontology, profile: dict[str, Any] | None) -> dict[str, Any]:
@@ -60,14 +82,18 @@ class Workspace:
         store: GraphStore,
         backend: StorageBackend,
         settings: Settings,
-        base_ontology: Ontology | None = None,
+        master: Ontology | None = None,
+        *,
+        is_open: bool = True,
     ) -> None:
         self.store = store
         self.backend = backend
         self.settings = settings
-        #: The full ontology as loaded from file. The store works with a copy
-        #: restricted to the project's profile (see effective_ontology).
-        self.base_ontology = base_ontology or store.ontology
+        #: The master ontology (see setm.ontology.master). The store works with
+        #: the project's own copy (see project_ontology_for).
+        self.master = master or store.ontology
+        #: False on the start page, before any project has been opened.
+        self.is_open = is_open
         self._save_lock = threading.Lock()
         self.last_save: SaveResult | None = None
         self._refresh_gauges()
@@ -79,26 +105,47 @@ class Workspace:
         load_builtin_backends()
 
         with telemetry.track("ontology.load"):
-            ontology = load_ontology(settings.ontology, overlays=settings.overlays)
+            master = load_master(settings)
 
         backend = open_storage(settings.storage, **settings.storage_options)
-        backend.bind_ontology(ontology)
+        backend.bind_ontology(master)
 
         with telemetry.track("storage.load", backend=backend.scheme):
             document = backend.load()
 
         if not document.nodes and not document.edges:
-            document.ontology_id = ontology.id
-            document.ontology_version = ontology.version
+            document.ontology_id = master.id
+            document.ontology_version = master.version
 
-        store = GraphStore(document, effective_ontology(ontology, document), strict=settings.strict)
+        store = GraphStore(document, project_ontology_for(master, document), strict=settings.strict)
         telemetry.increment("workspace.opened")
-        return cls(store, backend, settings, base_ontology=ontology)
+        return cls(store, backend, settings, master)
+
+    @classmethod
+    def blank(cls, settings: Settings | None = None, **overrides: Any) -> "Workspace":
+        """A workspace with no project open -- what the start page shows.
+
+        Everything that needs a project answers "no project is open" until one
+        is created, opened or loaded (see setm.projects).
+        """
+        settings = settings or Settings.load(**overrides)
+        load_builtin_backends()
+        with telemetry.track("ontology.load"):
+            master = load_master(settings)
+        backend = open_storage(f"memory:__no-project-{next(_blank_ids)}")
+        store = GraphStore(GraphDocument(ontology_id=master.id, ontology_version=master.version), master)
+        return cls(store, backend, settings, master, is_open=False)
 
     # -- persistence --------------------------------------------------------
     @property
     def ontology(self) -> Ontology:
+        """The ontology the open project works with: its own copy."""
         return self.store.ontology
+
+    @property
+    def base_ontology(self) -> Ontology:
+        """The master; kept under its earlier name for callers that use it."""
+        return self.master
 
     def save(self, *, message: str = "", actor: str = "", force: bool = False) -> SaveResult:
         """Flush to the backend. A no-op when nothing changed, unless forced."""
@@ -150,7 +197,7 @@ class Workspace:
 
             previous = {"storage": self.backend.describe(), "ontology": self.ontology.id}
             with telemetry.track("ontology.load"):
-                ontology = load_ontology(self.settings.ontology, overlays=self.settings.overlays)
+                ontology = load_master(self.settings)
 
             backend = open_storage(self.settings.storage, **self.settings.storage_options)
             backend.bind_ontology(ontology)
@@ -162,8 +209,9 @@ class Workspace:
                 document.ontology_version = ontology.version
 
             self.backend = backend
-            self.base_ontology = ontology
+            self.master = ontology
             self.store = self._build_store(document)
+            self.is_open = True
             self.last_save = None
             telemetry.increment("workspace.reconfigured")
             self._refresh_gauges()
@@ -185,18 +233,16 @@ class Workspace:
         return {"applied": changed}
 
     def reload_ontology(self) -> Ontology:
-        """Pick up edits to the ontology file without losing the loaded graph."""
+        """Re-read the master from its file.
+
+        The open project keeps its own copy: a master change reaches it only by
+        comparing and merging (see merge_ontology).
+        """
         with self._save_lock:
-            ontology = load_ontology(self.settings.ontology, overlays=self.settings.overlays)
-            # Holding the old store still from snapshot to swap means a write
-            # landing in between cannot be silently left behind in it.
-            with self.store.reading():
-                document = self.store.snapshot()
-                self.base_ontology = ontology
-                self.store = self._build_store(document)
-            self.backend.bind_ontology(ontology)
+            self.master = load_master(self.settings)
+            self.backend.bind_ontology(self.master)
             telemetry.increment("ontology.reloads")
-            return ontology
+            return self.master
 
     def import_document(self, document: GraphDocument, *, merge: bool = False, actor: str = "import") -> dict[str, Any]:
         """Replace or merge the current graph with an imported document."""
@@ -217,45 +263,121 @@ class Workspace:
             return {"nodes": self.store.node_count, "edges": self.store.edge_count, "merged": merge}
 
     def _build_store(self, document: GraphDocument) -> GraphStore:
-        return GraphStore(document, effective_ontology(self.base_ontology, document), strict=self.settings.strict)
+        return GraphStore(document, project_ontology_for(self.master, document), strict=self.settings.strict)
 
-    # -- project profile ----------------------------------------------------
+    def require_open(self) -> None:
+        if not self.is_open:
+            raise ConflictError("No project is open. Create, open or load one first.", no_project=True)
+
+    # -- the project's own ontology -----------------------------------------
     def types_in_use(self) -> tuple[dict[str, int], dict[str, int]]:
         """How many elements and relations of each type the graph holds."""
         stats = self.store.stats()
         return dict(stats["nodes_by_type"]), dict(stats["edges_by_type"])
 
-    def set_profile(self, profile: dict[str, Any]) -> dict[str, Any]:
-        """Change which element types and relations this project uses.
+    def properties_in_use(self) -> dict[str, set[str]]:
+        """Per element type, the properties its elements actually carry."""
+        used: dict[str, set[str]] = {}
+        for node in self.store.nodes():
+            used.setdefault(node.type, set()).update(k for k, v in node.properties.items() if v not in (None, "", []))
+        return used
 
-        Anything already in use must stay: switching it off would leave elements
-        the project can no longer show, edit or validate.
+    @property
+    def project_source(self) -> dict[str, Any]:
+        return self.store.ontology_source
+
+    def change_project_ontology(self, source: dict[str, Any]) -> Ontology:
+        """Replace the project's ontology, if the graph stays as valid as it was.
+
+        The change is built, then the whole graph is re-validated against it.
+        Anything that would newly fail -- an element whose type was removed, a
+        value outside a changed list of choices -- refuses the change and says
+        which elements are affected, so nothing is ever stranded.
         """
-        stored = normalise_profile(self.base_ontology, profile)
+        self.require_open()
+        ontology = project_ontology.build(source)
         with self._save_lock:
-            nodes_in_use, edges_in_use = self.types_in_use()
-            if stored.get("node_types") is not None:
-                kept_nodes, kept_edges = set(stored["node_types"]), set(stored["edge_types"])
-                # A relation is only really kept if both its ends survive.
-                restricted = self.base_ontology.restricted(kept_nodes, kept_edges)
-                blocked_nodes = {t: n for t, n in nodes_in_use.items() if t not in restricted.node_types}
-                blocked_edges = {t: n for t, n in edges_in_use.items() if t not in restricted.edge_types}
-                if blocked_nodes or blocked_edges:
-                    described = [f"{t} ({n} in use)" for t, n in {**blocked_nodes, **blocked_edges}.items()]
-                    raise ConflictError(
-                        "These are in use in this project and cannot be switched off: "
-                        + ", ".join(described) + ". Delete or retype those elements first.",
-                        in_use={"node_types": blocked_nodes, "edge_types": blocked_edges},
-                    )
             with self.store.reading():
                 document = self.store.snapshot()
-                document.project.profile = stored
+                before = {(e["element"], e["message"]) for e in validate_document(self.ontology, document)["errors"]}
+                report = validate_document(ontology, document)
+                broken = [e for e in report["errors"] if (e["element"], e["message"]) not in before]
+                if broken:
+                    raise ConflictError(
+                        f"This change would leave {len(broken)} element(s) of this project invalid "
+                        f"-- for example {broken[0]['element']}: {broken[0]['message']}. "
+                        "Change or delete those elements first.",
+                        issues=broken[:20],
+                    )
+                document.ontology = source
                 document.revision += 1
-                self.store = self._build_store(document)
+                ontology.source_path = "(project)"
+                self.store = GraphStore(document, ontology, strict=self.settings.strict)
             self.store.dirty = True
-            telemetry.increment("workspace.profile_changed")
+            telemetry.increment("ontology.project_changed")
             self._refresh_gauges()
-            return stored
+            return ontology
+
+    def _canonical_project_source(self) -> dict[str, Any]:
+        """The project source in the same normal form as the master's.
+
+        Hand-added types are written tersely; passing both sides through the
+        loader means a comparison sees meaning, not formatting.
+        """
+        canonical = ontology_to_source(self.ontology)
+        canonical["ontology"] = {**(self.project_source.get("ontology") or {}), **canonical["ontology"]}
+        canonical.pop("profiles", None)
+        return canonical
+
+    def compare_ontologies(self) -> dict[str, Any]:
+        items = compare_ontologies(self._canonical_project_source(), ontology_to_source(self.master))
+        return {"items": items, "summary": compare_summary(items)}
+
+    def merge_ontology(self, direction: str, items: list[dict[str, Any]], *, dry_run: bool = False) -> dict[str, Any]:
+        """Copy element types and relations between the project and the master."""
+        self.require_open()
+        plan = plan_merge(
+            direction,
+            items,
+            self._canonical_project_source(),
+            ontology_to_source(self.master),
+            in_use_properties=self.properties_in_use(),
+        )
+        # Build it either way: a preview that could not be applied is no preview.
+        build_ontology(plan["source"])
+        result = {k: v for k, v in plan.items() if k != "source"}
+        if dry_run or not (plan["copied"] or plan["dependencies"]):
+            return {**result, "applied": False}
+        if direction == "to_master":
+            with self._save_lock:
+                self.master = save_master(self.settings, plan["source"])
+                self.backend.bind_ontology(self.master)
+            telemetry.increment("ontology.master_merged")
+        else:
+            self.change_project_ontology(plan["source"])
+        return {**result, "applied": True, "master_version": self.master.version}
+
+    def describe_ontologies(self) -> dict[str, Any]:
+        project = self.ontology
+        return {
+            "master": {
+                "id": self.master.id,
+                "title": self.master.title,
+                "version": self.master.version,
+                "path": str(master_path(self.settings)),
+                "saved": master_saved(self.settings),
+                "template": self.settings.ontology,
+                "element_types": len(self.master.concrete_node_types()),
+                "relations": len(self.master.edge_types),
+            },
+            "project": {
+                "open": self.is_open,
+                "title": project.title,
+                "derived_from": (self.project_source.get("ontology") or {}).get("derived_from"),
+                "element_types": len(project.concrete_node_types()),
+                "relations": len(project.edge_types),
+            },
+        }
 
     # -- reporting ----------------------------------------------------------
     def validate(self, *, strict: bool | None = None) -> dict[str, Any]:
@@ -275,8 +397,10 @@ class Workspace:
             backend_health = {"backend": self.backend.scheme, "status": "error", "error": str(exc)}
         return {
             "status": "ok",
+            "project_open": self.is_open,
             "graph": self.store.stats(),
             "storage": {**self.backend.describe(), "health": backend_health},
+            "master": {"id": self.master.id, "version": self.master.version, "saved": master_saved(self.settings)},
             "ontology": {
                 "profile": self.store.project.profile.get("preset") or "full",
                 "id": self.ontology.id,

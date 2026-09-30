@@ -141,7 +141,8 @@ def trace(store: GraphStore, node_id: str, *, depth: int = 2) -> dict[str, Any]:
             {
                 "direction": "incoming",
                 "relation": edge.type,
-                "relation_label": spec.inverse_label or (f"is {spec.label} of" if spec else edge.type),
+                # Without a reverse wording, say the forward one pointing back here.
+                "relation_label": (spec.inverse_label or f"← {spec.label}") if spec else edge.type,
                 "edge_id": edge.id,
                 "edge_properties": edge.properties,
                 "node": _node_brief(store, store.node(edge.source)),

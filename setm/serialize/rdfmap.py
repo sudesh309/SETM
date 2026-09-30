@@ -22,6 +22,7 @@ from typing import Any, Sequence
 from urllib.parse import quote, unquote
 
 from ..model import Edge, GraphDocument, Node, ProjectInfo, Provenance, coerce_profile
+from ..ontology.loader import own_ontology
 from ..ontology.schema import Ontology, PropertySpec
 from .turtle import (
     DCTERMS,
@@ -187,6 +188,7 @@ def _provenance_terms(prov: Provenance) -> list[tuple[Term, Term]]:
 
 
 def document_to_triples(doc: GraphDocument, ontology: Ontology, *, data_ns: str = DEFAULT_DATA_NS) -> list[Triple]:
+    ontology = own_ontology(doc.ontology, ontology)
     triples: list[Triple] = []
     project = iri(data_ns + quote(doc.project.id, safe=""))
     triples += [
@@ -201,6 +203,8 @@ def document_to_triples(doc: GraphDocument, ontology: Ontology, *, data_ns: str 
     ]
     if doc.project.description:
         triples.append((project, iri(RDFS + "comment"), lit(doc.project.description)))
+    if doc.ontology:
+        triples.append((project, iri(SETM_NS + "projectOntology"), lit(json.dumps(doc.ontology, sort_keys=True))))
     if doc.project.profile:
         triples.append((project, iri(SETM_NS + "profile"), lit(json.dumps(doc.project.profile, sort_keys=True))))
 
@@ -286,11 +290,24 @@ _SKIP_PREDICATES = {
 
 def triples_to_document(triples: Sequence[Triple], ontology: Ontology) -> GraphDocument:
     """Rebuild a graph document from triples produced by ``document_to_triples``."""
+    # The project's own ontology first: its element types decide how classes map.
+    own_source: dict[str, Any] = {}
+    for _subject, predicate, obj in triples:
+        predicate_iri = predicate[1] if isinstance(predicate, tuple) else predicate
+        if predicate_iri == SETM_NS + "projectOntology":
+            try:
+                parsed = json.loads(str(literal_value(obj)))
+            except ValueError:
+                parsed = {}
+            if isinstance(parsed, dict):
+                own_source = parsed
+            break
+    ontology = own_ontology(own_source, ontology)
     grouped = group_by_subject(triples)
     class_to_type = {_class_iri(ontology, name): name for name in ontology.node_types}
     iri_to_edge_type = {_property_iri(ontology, name): name for name in ontology.edge_types}
 
-    doc = GraphDocument(nodes=[], edges=[])
+    doc = GraphDocument(nodes=[], edges=[], ontology=own_source)
     iri_to_local: dict[str, str] = {}
 
     for subject_iri, pairs in grouped.items():

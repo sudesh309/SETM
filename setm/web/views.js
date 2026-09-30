@@ -3,12 +3,11 @@
 // and returns nothing -- state lives in app.js.
 
 import { download } from './api.js';
-import { describeProfile } from './configure.js';
 import { h, formatValue } from './forms.js';
 
 // A button that downloads through the API client, so the request carries the
 // token header. A failure is announced as an event; app.js turns it into a toast.
-function downloadLink(href, text) {
+export function downloadLink(href, text) {
   return h('a', {
     class: 'btn',
     href,
@@ -433,102 +432,6 @@ export function collectGaps(kpi) {
 }
 
 // ---------------------------------------------------------------- ontology
-export function renderOntology(container, ontology, actions) {
-  container.replaceChildren(
-    pageHead(
-      `Ontology: ${ontology.title || ontology.id} v${ontology.version}`,
-      'The vocabulary this project is allowed to use. It is a separate file, maintained independently of the '
-      + 'application — edit it, reload, and every form, validation rule and KPI follows.',
-    ),
-  );
-
-  if (actions.configuration) {
-    container.append(h('div', { class: 'card config-card' }, [
-      h('div', { class: 'card-head' }, [
-        h('h3', { text: 'This project\'s configuration' }),
-        h('button', { class: 'btn btn-primary', text: 'Customise…', onClick: actions.onCustomise }),
-      ]),
-      h('div', { class: 'config-line', text: describeProfile(actions.configuration) }),
-      h('p', { class: 'muted', text: 'The element types and relations this project uses, from the ontology below. '
-        + 'Forms, the graph, the tree and the KPIs show only these.' }),
-    ]));
-  }
-
-  const sourceCard = h('div', { class: 'card' }, [
-    h('div', { class: 'card-head' }, [h('h3', { text: 'Source' })]),
-    h('div', { class: 'mono muted', text: ontology.source_path || '(built in)' }),
-    h('div', { style: 'margin-top:10px;display:flex;gap:8px;flex-wrap:wrap' }, [
-      h('button', { class: 'btn', text: 'Reload from disk', onClick: actions.onReload }),
-      downloadLink('/api/ontology/export?format=owl', 'Download OWL / Turtle'),
-      downloadLink('/api/ontology/export?format=json', 'Download JSON'),
-    ]),
-  ]);
-  container.append(sourceCard);
-
-  const byCategory = new Map();
-  for (const spec of Object.values(ontology.node_types)) {
-    if (spec.abstract) continue;
-    if (!byCategory.has(spec.category)) byCategory.set(spec.category, []);
-    byCategory.get(spec.category).push(spec);
-  }
-
-  for (const [category, specs] of [...byCategory].sort()) {
-    const card = h('div', { class: 'card' });
-    card.append(h('div', { class: 'card-head' }, [h('h3', { text: `${category} — element types` })]));
-    const table = h('table', { class: 'data' }, [
-      h('thead', {}, [h('tr', {}, [
-        h('th', { text: 'Type' }), h('th', { text: 'Meaning' }), h('th', { text: 'Properties' }),
-        h('th', { text: '' }),
-      ])]),
-    ]);
-    const body = h('tbody');
-    for (const spec of specs) {
-      body.append(h('tr', {}, [
-        h('td', {}, [h('i', { class: 'status-dot', style: `background:${spec.color}` }), spec.label]),
-        h('td', { class: 'muted', text: spec.description || '' }),
-        h('td', { class: 'mono muted', text: Object.keys(spec.properties).join(', ') }),
-        h('td', {}, [
-          h('button', {
-            class: 'btn btn-icon',
-            title: `New ${spec.label}`,
-            text: '+',
-            onClick: () => actions.onNew(spec.name),
-          }),
-        ]),
-      ]));
-    }
-    table.append(body);
-    card.append(table);
-    container.append(card);
-  }
-
-  const relations = h('div', { class: 'card' });
-  relations.append(h('div', { class: 'card-head' }, [
-    h('h3', { text: 'Relations' }),
-    h('span', { class: 'muted', text: 'the "question" column is what drives the traceability panel' }),
-  ]));
-  const table = h('table', { class: 'data' }, [
-    h('thead', {}, [h('tr', {}, [
-      h('th', { text: 'Relation' }), h('th', { text: 'From' }), h('th', { text: 'To' }),
-      h('th', { text: 'Cardinality' }), h('th', { text: 'Question' }),
-    ])]),
-  ]);
-  const body = h('tbody');
-  for (const spec of Object.values(ontology.edge_types)) {
-    body.append(h('tr', {}, [
-      h('td', {}, [h('i', { class: 'status-dot', style: `background:${spec.color}` }), spec.label]),
-      h('td', { class: 'muted', text: spec.domain.join(', ') || 'any' }),
-      h('td', { class: 'muted', text: spec.range.join(', ') || 'any' }),
-      h('td', { class: 'mono muted', text: spec.cardinality }),
-      h('td', { text: spec.question || '—' }),
-    ]));
-  }
-  table.append(body);
-  relations.append(table);
-  container.append(relations);
-}
-
-// ------------------------------------------------------------------ system
 export function renderSystem(container, { health, appKpi, validation }, actions) {
   container.replaceChildren(
     pageHead(
@@ -685,41 +588,6 @@ export function renderSettings(container, data, actions, initialStatus = '') {
   }
   page.append(configCard);
 
-  if (data.examples?.length) {
-    const examplesCard = h('div', { class: 'card' });
-    examplesCard.append(h('div', { class: 'card-head' }, [
-      h('h3', { text: 'Worked examples' }),
-    ]));
-    examplesCard.append(h('p', { class: 'setting-help' }, [
-      'Replaces everything in the current project with one of the examples that ship with SETM. '
-      + 'Save first if you want to keep what is here now.',
-    ]));
-    for (const example of data.examples) {
-      const row = h('div', {
-        style: 'display:flex;align-items:center;gap:14px;padding:11px 0;border-top:1px solid var(--border)',
-      }, [
-        h('div', { style: 'flex:1' }, [
-          h('div', { text: example.label }),
-          h('div', { class: 'setting-help', text: example.description }),
-        ]),
-        h('button', {
-          class: 'btn',
-          text: 'Load',
-          onClick: async (event) => {
-            event.target.disabled = true;
-            try {
-              await actions.onLoadExample(example.name);
-            } finally {
-              event.target.disabled = false;
-            }
-          },
-        }),
-      ]);
-      examplesCard.append(row);
-    }
-    page.append(examplesCard);
-  }
-
   page.append(loadFileCard(actions));
 
   // One card per group, in the order the API listed them.
@@ -793,10 +661,11 @@ export function renderSettings(container, data, actions, initialStatus = '') {
 /** Pick a .json graph file off disk and hand its parsed contents to the importer. */
 function loadFileCard(actions) {
   const card = h('div', { class: 'card' });
-  card.append(h('div', { class: 'card-head' }, [h('h3', { text: 'Load a project file' })]));
+  card.append(h('div', { class: 'card-head' }, [h('h3', { text: 'Import into this project' })]));
   card.append(h('p', { class: 'setting-help' }, [
-    'Opens a JSON graph exported from SETM (the same shape "Download JSON" writes). '
-    + 'Replaces the current project unless you choose to merge.',
+    'Reads a JSON graph exported from SETM (the same shape "Download JSON" writes) into the open '
+    + 'project, replacing it unless you choose to merge. To load a file as a new project instead, '
+    + 'use Import on the start page.',
   ]));
 
   const merge = h('input', { type: 'checkbox', id: 'import-merge' });

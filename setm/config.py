@@ -69,6 +69,13 @@ FIELD_SPECS: tuple[FieldSpec, ...] = (
         placeholder="aerospace-se-core", reopens_workspace=True, env_var="SETM_ONTOLOGY",
     ),
     FieldSpec(
+        "master_ontology", "Master ontology file", "string", "Ontology",
+        "The organisation's master ontology, which projects copy their element types "
+        "from and merge new ones back into. SETM writes it; until the first merge, the "
+        "shipped ontology above is used as the master.",
+        placeholder="./data/ontologies/master.json", env_var="SETM_MASTER_ONTOLOGY",
+    ),
+    FieldSpec(
         "overlays", "Overlays", "list", "Ontology",
         "Extra ontology files layered on top, for per-programme tailoring. "
         "One path per line.",
@@ -152,6 +159,8 @@ class Settings:
     projects_dir: str = "./data/projects"
     #: Ontology file path or the name of a built-in ontology.
     ontology: str = "aerospace-se-core"
+    #: The managed master ontology (seeded from ``ontology`` on the first merge).
+    master_ontology: str = "./data/ontologies/master.json"
     #: Extra ontology files layered on top of the main one.
     overlays: list[str] = field(default_factory=list)
     #: Reject properties that the ontology does not declare.
