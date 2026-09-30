@@ -55,6 +55,9 @@ class GraphStore:
         self.ontology_id = document.ontology_id or ontology.id
         self.ontology_version = document.ontology_version or ontology.version
         self.dirty = False
+        #: The project ontology in authoring form, carried so a save writes it
+        #: back with the graph (see GraphDocument.ontology).
+        self.ontology_source: dict[str, Any] = document.ontology
         self._load(document)
 
     # -- loading ------------------------------------------------------------
@@ -482,6 +485,7 @@ class GraphStore:
                 edges=list(self._edges.values()),
                 revision=self.revision,
                 updated_at=utc_now(),
+                ontology=self.ontology_source,
             )
 
     def stats(self) -> dict[str, Any]:

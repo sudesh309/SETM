@@ -49,9 +49,14 @@ setm demo                 # build the worked example
 setm serve --open
 ```
 
-Then open <http://127.0.0.1:8765>. It lands on **Overview** — health score, what is below
-target, gate readiness and the top risks on one screen — with the working views along the top and
-Ontology / System / Settings behind the gear.
+Then open <http://127.0.0.1:8765>. It starts on the **start page** with nothing open: create a
+project, open one from the list (the demo is there), or load a worked example or a file as a
+new project. `setm serve ./data/project.json` skips the start page and opens that project straight
+away.
+
+A project opens on **Overview** — health score, what is below target, gate readiness and the top
+risks on one screen — with the working views along the top, and Projects / Ontologies / System /
+Settings behind the gear. The project name at the top left always leads back to the start page.
 
 **Windows note:** if `setm` isn't found after install, use `python -m setm` in
 its place -- but do this *after* `pip install -e .`, not instead of it. Without
@@ -77,7 +82,7 @@ architecture baseline of OAD/OPD/OSD deliverables and a real system-element
 breakdown). Build it with:
 
 ```bash
-setm demo --example modification --force        # replaces the demo above, so `setm serve` shows it
+setm demo --example modification --force        # replaces the demo above (same file on the start page)
 setm demo --example modification json:./data/modification.json   # or keep both side by side
 ```
 
@@ -92,9 +97,10 @@ You can also import the ready-made file directly:
 setm import examples/modification-programme.json
 ```
 
-or load it without leaving the browser: open **Settings** in the running app and use the
-"Worked examples" card. The "Load a project file" card beside it opens any JSON graph SETM has
-exported, replacing the current project or merging into it.
+or load it without leaving the browser: on the start page, pick it under **Load** and it opens as
+a project of its own — nothing you have is replaced. **Import file…** beside it does the same for
+any JSON graph SETM has exported. To read a file *into* the open project instead (replacing or
+merging), use the "Import into this project" card in **Settings**.
 
 ### Where the graph lives
 
@@ -121,10 +127,13 @@ reload rather than silently winning.
 
 ## What you get
 
-**Graph view** — the whole project as a navigable network. Filter by element
-type or by which *question* a relation answers; select an element to see its
-traceability grouped by who / when / why / how / what, plus the gaps the
-ontology says it is missing.
+**Dashboard** — the whole project as a map you can read. Every element is a card in one of five
+columns, **Why · What · How · Who · When**, so where a thing sits says what it is for. There are no
+lines until you ask: hover a card to see just its links, click it to **focus** — only it and its
+neighbours stay (one step or two), each neighbour saying which relation links it in, the links
+drawn between them. **Back** retraces your steps and **Show all** clears the focus. The filters on
+the left narrow by element type, relation or weight; the inspector on the right shows the focused
+element's traceability grouped by question, plus the gaps the ontology says it is missing.
 
 **Milestones** — what each gate is waiting on, with readiness and status mix.
 
@@ -137,7 +146,8 @@ by hand between one tool and the next.
 **KPIs** — measured from the graph, so they cannot drift from the plan
 (details below).
 
-**Ontology** — browse the vocabulary, reload it after an edit, export it as OWL.
+**Ontologies** — the project's own vocabulary and the master it came from, side by side, with
+compare and merge in either direction (see below).
 
 **System** — storage health, validation, and live application performance.
 
@@ -149,38 +159,63 @@ pack), Markdown (for a minute or a merge request) or JSON. It carries the
 properties, the traceability grouped by question, the gaps the ontology expects
 filled, the impact and the provenance.
 
-## Projects: create one in the interface, with the vocabulary it needs
+## Projects: start blank, create, open, load
 
-Click the **project name** at the top left for the **Projects** list: every project, with Open, and
-**+ New project**. The new-project dialog asks for:
+The app starts with nothing open. The **start page** has three parts:
 
-- the project's name, programme, phase and chief engineer;
-- how to store it (a JSON file, or SQLite for a large project);
-- its **configuration** — which element types and relations the project uses.
+- **+ Create new project** — a three-step wizard (below).
+- **Open** — every project: the ones in `./data/projects/` (the `projects_dir` setting), the
+  configured project file, and the ones opened recently, most recent first.
+- **Load** — a worked example, or a SETM JSON file, each as a *new* project.
 
-| Configuration | What it holds |
-|---|---|
-| **Light** (the default) | The essentials: Objective, Requirement, Risk, Activity, Deliverable, Person, Work package and Milestone, with the 15 relations between them. Right for a small team or a first project. |
-| **Full** | Every element type and relation in the ontology: processes, methods, tools and data exchange, system architecture, parameters and assumptions. Types added to the ontology later appear automatically. |
-| **Custom** | Start from either and tick exactly what the project needs. Ticking a type brings along the relations it makes possible; a relation whose ends are both switched off is greyed out, with the reason shown. |
+The wizard:
 
-Everything follows from that choice:
-- the forms and relation picker;
-- the Graph filters, the Tree and the Ontology page;
-- validation;
-- the KPIs, where one that needs a switched-off concept shows as unavailable rather than failing.
+1. **Project** — name, programme, phase, chief engineer, and how to store it (a JSON file, or
+   SQLite for a large project).
+2. **From the master** — which element types and relations the project uses:
 
-To change a project's configuration later, open **Ontology** from the gear menu and click
-**Customise…** on *This project's configuration*. Anything that already has elements stays on — the
-server refuses to switch it off, so nothing can be stranded.
+   | Choice | What it holds |
+   |---|---|
+   | **Light** (the default) | The essentials: Objective, Requirement, Risk, Activity, Deliverable, Person, Work package and Milestone, with the 15 relations between them. Right for a small team or a first project. |
+   | **Full** | Every element type and relation in the master: processes, methods, tools and data exchange, system architecture, parameters and assumptions. |
+   | **Custom** | Start from either and tick exactly what the project needs. Ticking a type brings along the relations it makes possible; a relation whose ends are both switched off is greyed out, with the reason shown. |
 
-Projects created this way live in `./data/projects/` (the `projects_dir` setting), one file each.
-The configuration is saved inside the project itself, so it moves with the project's data to any
-storage backend, through export and import, and into Git history.
+3. **Add your own** — element types and relations only this project needs, e.g. a *Test rig* type
+   with a *rig class* property and a *tested on* relation from SE activity. A new type inherits
+   name and description; you add its category (why/what/how/who/when), colour and properties
+   (text, number, date, yes/no, link or a choice from a list, each optionally required).
 
-The two presets are defined in the ontology file, under `profiles:`, so a methods team can change
-what "Light" means. That affects only projects created afterwards, never existing ones. The command
-line has the same choice: `setm init … --profile light`.
+Everything follows from the project's vocabulary: the forms and relation picker, the Dashboard
+filters, validation, and the KPIs, where one that needs a missing concept shows as unavailable
+rather than failing.
+
+## Two ontologies: the master and the project's own
+
+- The **master ontology** is the organisation's shared vocabulary. SETM keeps it in
+  `./data/ontologies/master.json` (the `master_ontology` setting). Until something is first copied
+  into it, the master is the shipped ontology file, which SETM never writes.
+- Each **project ontology** is the project's own copy — what it chose from the master plus what
+  it added. It is saved inside the project, so it moves with the data to any storage backend,
+  through export and import, and into Git history. A project made before this existed gets a
+  snapshot of the master (restricted to its Light/Full choice) when it is opened.
+
+The two change independently and are brought in step only when you choose. **Ontologies**, in the
+gear menu, has three tabs:
+
+- **Project ontology** — each type and relation badged *from master*, *project only* or
+  *changed*. Add a type or relation, edit or remove one, or **Add from master…**. Removing or
+  changing something the project's elements still use is refused, with the reason, so nothing is
+  stranded.
+- **Master ontology** — what the master holds, its version and file, reload after an edit
+  outside SETM, download.
+- **Compare & merge** — every difference, down to individual properties. Tick items and
+  **Copy to master →** or **← Copy to project**. A preview says what comes along — a relation
+  brings the types at its ends, a type its parent — and what is kept. Copying to the master
+  saves the file and bumps its version; other projects take the change only when they copy it
+  themselves.
+
+The Light and Full presets are defined in the ontology file, under `profiles:`, so a methods team
+can change what "Light" means. The command line has the same choice: `setm init … --profile light`.
 
 ## Command line
 
@@ -188,7 +223,8 @@ Everything the interface does is scriptable, which is the point of
 `setm validate` and `setm kpi --fail-under` as CI gates.
 
 ```bash
-setm serve json:./data/project.json     # web interface
+setm serve                              # web interface, on the start page
+setm serve json:./data/project.json     # ...or straight into one project
 setm init  sqlite:./data/project.db --name "HALO-2" --chief-engineer "A. Okonkwo"
 setm init  json:./data/rig.json --name "Test rig" --profile light   # Light configuration
 setm info                               # storage, ontology and graph status
@@ -247,9 +283,11 @@ Adding a backend is one file implementing `load()` and `save()` — see
 
 `ontologies/aerospace-se-core.yaml` — not the application code — defines what a
 project may contain: the element types, their properties, the legal relations
-and their cardinality. A methods-and-tools team owns it. Edit it, hit **Reload
-from disk**, and the forms, the validation, the RDF export and the KPIs all
-follow immediately.
+and their cardinality. A methods-and-tools team owns it. It is the starting
+point of the master ontology; the forms, the validation, the RDF export and the
+KPIs all follow whatever a project's ontology says. After editing the master
+outside SETM, **Reload from file** on the Ontologies page picks it up, and each
+project takes the change through **Compare & merge** when it chooses to.
 
 ```yaml
 node_types:
@@ -415,7 +453,8 @@ curl localhost:8765/metrics     # Prometheus text format
 
 ## HTTP API
 
-`GET /api/routes` lists everything. The essentials:
+`GET /api/routes` lists everything. Until a project is open, the project routes answer
+`409 No project is open`. The essentials:
 
 ```
 GET    /api/graph?type=Activity&q=thermal
@@ -431,7 +470,9 @@ GET    /api/kpi  |  /api/kpi/app  |  /api/validate  |  /metrics
 GET    /api/settings                   PATCH /api/settings
 POST   /api/settings/test-storage      POST  /api/settings/reopen
 GET    /api/projects                   POST  /api/projects   POST /api/projects/open
-GET    /api/project/configuration      PUT   /api/project/configuration
+GET    /api/ontologies                 GET   /api/ontologies/master
+GET    /api/ontologies/compare         POST  /api/ontologies/merge {direction, items, dry_run}
+POST   /api/project/ontology/element-types|relations     PUT/DELETE …/{name}
 GET    /api/export?format=json|ttl|owl|csv         POST /api/import
 ```
 
@@ -478,7 +519,7 @@ Layered, each depending only on the one below, which is why a backend or a KPI
 is a small isolated change:
 
 ```
-setm/web/          vanilla JS: canvas graph, ontology-driven forms, dashboards
+setm/web/          vanilla JS: start page, Dashboard map, ontology-driven forms, views
 setm/api/          route table (routes.py) + stdlib server (server.py) + ASGI (asgi.py)
                    + one security layer both servers share (security.py)
 setm/config.py     settings, their provenance, and the settings-page metadata
@@ -488,7 +529,7 @@ setm/kpi/          project KPIs (metrics.py) and app telemetry (telemetry.py)
 setm/graph/        indexed store (store.py), traversal (query.py), accel hook (_fastpath.py)
 setm/storage/      pluggable backends behind one ABC + a URI registry
 setm/serialize/    Turtle/OWL reader+writer, spreadsheet tables
-setm/ontology/     schema, loader (inheritance, overlays), validator
+setm/ontology/     schema, loader (inheritance, overlays), validator, master/project, compare
 setm/model.py      Node, Edge, GraphDocument — plain dataclasses
 ```
 
@@ -555,7 +596,7 @@ For a much larger programme:
 
 ```bash
 pip install -e '.[dev]'
-pytest                      # 339 tests
+pytest                      # 370 tests
 ```
 
 Covering ontology inheritance and validation, graph mutation and traversal,

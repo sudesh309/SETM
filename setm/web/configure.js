@@ -1,9 +1,9 @@
 // Project configuration: which element types and relations a project uses.
 //
-// One picker serves both "New project" and "Customise this project". It is
-// generated from GET /api/project/configuration: the presets (Light, Full)
-// come from the ontology file, and so does the catalogue of types and
-// relations, so a tailored ontology produces a tailored picker.
+// Used by the new-project wizard to choose from the master ontology. It is
+// generated from GET /api/ontologies/catalogue: the presets (Light, Full) come
+// from the master ontology file, and so does the catalogue of types and
+// relations, so a tailored master produces a tailored picker.
 
 import { h } from './forms.js';
 
@@ -195,12 +195,4 @@ export function buildTypePicker(config, { initial, lockInUse = false } = {}) {
       };
     },
   };
-}
-
-/** One line describing a profile: "Light · 8 element types · 15 relations". */
-export function describeProfile(config) {
-  const presetName = config.profile?.preset || 'full';
-  const preset = config.presets.find((p) => p.name === presetName);
-  const label = preset ? preset.label : presetName.charAt(0).toUpperCase() + presetName.slice(1);
-  return `${label} · ${config.active.node_types.length} element types · ${config.active.edge_types.length} relations`;
 }

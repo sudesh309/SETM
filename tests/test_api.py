@@ -278,10 +278,11 @@ def test_examples_lists_both_worked_examples(workspace):
     assert names == {"payload", "modification"}
 
 
-def test_loading_an_example_replaces_the_graph(workspace):
+def test_loading_an_example_opens_it_as_a_new_project(workspace):
     from setm.modification_demo import build_modification_demo
 
     expected = build_modification_demo(workspace.ontology)
+    before = workspace.settings.storage
 
     response = call(workspace, "POST", "/api/examples/load", {"name": "modification"})
     assert response.status == 200
@@ -291,6 +292,9 @@ def test_loading_an_example_replaces_the_graph(workspace):
 
     health = call(workspace, "GET", "/api/health")
     assert health.body["graph"]["nodes"] == len(expected.nodes)
+    # A project of its own: the one that was open is untouched, not overwritten.
+    assert workspace.settings.storage != before
+    assert workspace.settings.storage.endswith(".json")
 
 
 def test_loading_an_unknown_example_is_rejected(workspace):

@@ -18,12 +18,17 @@ from typing import Any
 
 from ..errors import ValidationError
 from ..model import Edge, GraphDocument, Node, ProjectInfo, Provenance
+from ..ontology.loader import own_ontology
 from ..ontology.schema import Ontology, PropertySpec
 from ..ontology.validate import coerce_value
 
 PROVENANCE_COLUMNS = ["_created_at", "_created_by", "_updated_at", "_updated_by", "_revision", "_source"]
 RELATIONS_SHEET = "_Relations"
 PROJECT_SHEET = "_Project"
+#: The project's own ontology, as JSON split over rows: a Sheets cell holds at
+#: most 50,000 characters and a full ontology is larger than that.
+ONTOLOGY_SHEET = "_Ontology"
+_ONTOLOGY_CHUNK = 40_000
 
 Table = dict[str, Any]  # {"header": [str], "rows": [[str]]}
 
@@ -65,6 +70,7 @@ def _provenance_from_row(row: dict[str, str]) -> Provenance:
 
 
 def document_to_tables(document: GraphDocument, ontology: Ontology) -> dict[str, Table]:
+    ontology = own_ontology(document.ontology, ontology)
     tables: dict[str, Table] = {
         PROJECT_SHEET: {
             "header": ["key", "value"],
@@ -114,11 +120,28 @@ def document_to_tables(document: GraphDocument, ontology: Ontology) -> dict[str,
             for edge in document.edges
         ],
     }
+    if document.ontology:
+        text = json.dumps(document.ontology, ensure_ascii=False, sort_keys=True)
+        tables[ONTOLOGY_SHEET] = {
+            "header": ["part"],
+            "rows": [[text[i : i + _ONTOLOGY_CHUNK]] for i in range(0, len(text), _ONTOLOGY_CHUNK)],
+        }
     return tables
 
 
 def tables_to_document(tables: dict[str, Table], ontology: Ontology) -> GraphDocument:
     document = GraphDocument(nodes=[], edges=[])
+
+    ontology_table = tables.get(ONTOLOGY_SHEET)
+    if ontology_table and ontology_table.get("rows"):
+        text = "".join(str(row[0]) for row in ontology_table["rows"] if row)
+        try:
+            parsed = json.loads(text)
+        except ValueError:
+            parsed = {}
+        if isinstance(parsed, dict):
+            document.ontology = parsed
+            ontology = own_ontology(parsed, ontology)
 
     project_table = tables.get(PROJECT_SHEET)
     if project_table:
@@ -132,7 +155,7 @@ def tables_to_document(tables: dict[str, Table], ontology: Ontology) -> GraphDoc
             document.revision = 0
 
     for sheet_name, table in tables.items():
-        if sheet_name in (PROJECT_SHEET, RELATIONS_SHEET):
+        if sheet_name in (PROJECT_SHEET, RELATIONS_SHEET, ONTOLOGY_SHEET):
             continue
         if sheet_name not in ontology.node_types:
             continue  # a worksheet the user added for their own notes

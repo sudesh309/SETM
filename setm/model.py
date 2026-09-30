@@ -222,9 +222,13 @@ class GraphDocument:
     revision: int = 0
     updated_at: str = field(default_factory=utc_now)
     schema_version: str = SCHEMA_VERSION
+    #: The project's own ontology, in authoring format: its copy of the master
+    #: types it uses plus anything it added. Travels with the data. Empty for a
+    #: document written before projects had their own ontology.
+    ontology: dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
-        return {
+        out = {
             "schema_version": self.schema_version,
             "project": self.project.to_dict(),
             "ontology_id": self.ontology_id,
@@ -234,6 +238,9 @@ class GraphDocument:
             "nodes": [n.to_dict() for n in self.nodes],
             "edges": [e.to_dict() for e in self.edges],
         }
+        if self.ontology:
+            out["ontology"] = self.ontology
+        return out
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> "GraphDocument":
@@ -248,6 +255,7 @@ class GraphDocument:
             revision=int(data.get("revision") or 0),
             updated_at=str(data.get("updated_at") or utc_now()),
             schema_version=str(data.get("schema_version") or SCHEMA_VERSION),
+            ontology=dict(data.get("ontology") or {}) if isinstance(data.get("ontology"), dict) else {},
         )
 
     def elements(self) -> Iterator[Node | Edge]:

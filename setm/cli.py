@@ -185,7 +185,12 @@ def cmd_serve(args: argparse.Namespace) -> int:
     from .api.server import serve
 
     settings = _settings_from_args(args)
-    workspace = Workspace.open(settings)
+    # A target named on the command line is opened straight away. Otherwise
+    # the interface starts on its start page: create, open or load a project.
+    if getattr(args, "target", None) or getattr(args, "storage", None):
+        workspace = Workspace.open(settings)
+    else:
+        workspace = Workspace.blank(settings)
     serve(workspace, settings)
     return 0
 
@@ -208,9 +213,13 @@ def cmd_init(args: argparse.Namespace) -> int:
     document.project.programme = args.programme
     document.project.chief_engineer = args.chief_engineer
     if args.profile:
+        from .ontology import project as project_ontology
         from .workspace import normalise_profile
 
-        document.project.profile = normalise_profile(ontology, {"preset": args.profile})
+        profile = normalise_profile(ontology, {"preset": args.profile})
+        document.project.profile = {"preset": profile["preset"]}
+        selection = (set(profile["node_types"]), set(profile["edge_types"])) if "node_types" in profile else (None, None)
+        document.ontology = project_ontology.from_selection(ontology, *selection)
     result = backend.save(document, message="initialise project", actor=settings.actor)
     print(f"Initialised '{args.name}' at {result.location or settings.storage}")
     print(f"Next: setm serve {settings.storage}")

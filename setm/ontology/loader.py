@@ -203,6 +203,30 @@ def _deep_merge(base: dict[str, Any], overlay: dict[str, Any]) -> dict[str, Any]
     return out
 
 
+def own_ontology(source: dict[str, Any] | None, fallback: Ontology) -> Ontology:
+    """The ontology a document carries itself, or ``fallback`` if it has none.
+
+    Serialisers use this so a project's own element types -- ones the master
+    ontology has never heard of -- still get their own sheet, class or row.
+    """
+    if not source:
+        return fallback
+    try:
+        return build_ontology(source)
+    except OntologyError:
+        return fallback
+
+
+def ontology_to_source(ontology: Ontology) -> dict[str, Any]:
+    """An ontology in authoring form: what a file or a project document stores.
+
+    Inheritance and property sets are already flattened into each type, so the
+    result stands on its own; ``build_ontology`` turns it back into an equal
+    Ontology.
+    """
+    return _as_source(ontology)
+
+
 def dump_ontology(ontology: Ontology, path: os.PathLike[str] | str) -> None:
     """Write a resolved ontology back out as JSON (used by ``setm ontology sync``)."""
     Path(path).write_text(json.dumps(_as_source(ontology), indent=2) + "\n", encoding="utf-8")

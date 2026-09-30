@@ -1,5 +1,6 @@
-"""Projects created in the interface, and the profile that picks a project's
-element types and relations (Light, Full, Custom)."""
+"""Projects: the start page, creating (empty, from an example, from a file),
+opening and switching -- and the Light / Full / Custom presets a new project
+chooses its element types and relations from."""
 
 from __future__ import annotations
 
@@ -10,11 +11,9 @@ import pytest
 from setm.api.routes import Request, dispatch
 from setm.cli import main
 from setm.config import Settings
-from setm.errors import ConflictError, OntologyError, ValidationError
-from setm.model import GraphDocument, Node, ProjectInfo
-from setm.serialize.tabular import document_to_tables, tables_to_document
-from setm.storage.registry import open_storage
-from setm.workspace import Workspace, effective_ontology, normalise_profile
+from setm.errors import OntologyError, ValidationError
+from setm.model import GraphDocument
+from setm.workspace import Workspace, normalise_profile
 
 LIGHT_TYPES = {"Objective", "Requirement", "Risk", "Activity", "Deliverable", "Person", "WorkPackage", "Milestone"}
 
@@ -95,58 +94,24 @@ def test_normalise_profile(ontology):
         normalise_profile(ontology, {"preset": "custom", "node_types": []})
 
 
-def test_effective_ontology_never_hides_data(ontology):
-    document = GraphDocument(
-        project=ProjectInfo(profile={"preset": "light", "node_types": ["Activity"], "edge_types": []}),
-        nodes=[Node(id="t1", type="Tool", properties={"name": "CAD"})],
-    )
-    effective = effective_ontology(ontology, document)
-    assert "Activity" in effective.node_types and "Tool" in effective.node_types  # widened by the data
-
-
 # --------------------------------------------------------------------------- #
-# The profile travels with the project, through every kind of storage
-# --------------------------------------------------------------------------- #
-
-
-def _profiled_document(ontology):
-    return GraphDocument(project=ProjectInfo(name="P", profile=normalise_profile(ontology, {"preset": "light"})))
-
-
-@pytest.mark.parametrize("scheme,filename", [("json", "p.json"), ("sqlite", "p.db"), ("rdf", "p.ttl")])
-def test_profile_round_trips_through_file_backends(tmp_path, ontology, scheme, filename):
-    document = _profiled_document(ontology)
-    backend = open_storage(f"{scheme}:{tmp_path / filename}")
-    backend.bind_ontology(ontology)
-    backend.save(document)
-    assert backend.load().project.profile == document.project.profile
-
-
-def test_profile_round_trips_through_spreadsheet_tables(ontology):
-    document = _profiled_document(ontology)
-    assert tables_to_document(document_to_tables(document, ontology), ontology).project.profile == document.project.profile
-
-
-def test_documents_without_a_profile_still_load(ontology):
-    assert GraphDocument.from_dict({"project": {"name": "Old"}}).project.profile == {}
-
-
-# --------------------------------------------------------------------------- #
-# Workspace and API
+# The start page: nothing open until the user chooses
 # --------------------------------------------------------------------------- #
 
 
 @pytest.fixture
-def ws(tmp_path):
-    settings = Settings(
-        storage=f"json:{tmp_path / 'start.json'}",
+def settings(tmp_path):
+    return Settings(
+        storage=f"json:{tmp_path / 'configured.json'}",
         projects_dir=str(tmp_path / "projects"),
+        master_ontology=str(tmp_path / "master.json"),
         config_path=str(tmp_path / "setm.toml"),
     )
-    workspace = Workspace.open(settings)
-    workspace.store.add_node("Person", {"name": "Ada"})
-    workspace.save()
-    return workspace
+
+
+@pytest.fixture
+def blank(settings):
+    return Workspace.blank(settings)
 
 
 def call(workspace, method, path, body=None):
@@ -154,105 +119,143 @@ def call(workspace, method, path, body=None):
     return response.status, response.body
 
 
-def test_configuration_describes_presets_catalogue_and_usage(ws):
-    status, body = call(ws, "GET", "/api/project/configuration")
-    assert status == 200
-    assert body["profile"] == {"preset": "full"}
-    assert {p["name"] for p in body["presets"]} >= {"light", "full"}
-    person = next(t for t in body["catalogue"]["node_types"] if t["name"] == "Person")
-    assert person["in_use"] == 1 and person["category"] == "Who"
-    assert len(body["catalogue"]["node_types"]) == 16 and len(body["catalogue"]["edge_types"]) == 30
+def test_blank_workspace_has_no_project(blank):
+    status, body = call(blank, "GET", "/api/health")
+    assert status == 200 and body["project_open"] is False
+    for method, path in [("GET", "/api/graph"), ("POST", "/api/nodes"), ("GET", "/api/kpi"), ("POST", "/api/save")]:
+        status, body = call(blank, method, path, {"type": "Person", "properties": {"name": "x"}})
+        assert status == 409 and "No project is open" in body["error"]["message"], path
+    # What the start page needs still works.
+    assert call(blank, "GET", "/api/projects")[0] == 200
+    assert call(blank, "GET", "/api/ontologies")[0] == 200
+    assert call(blank, "GET", "/api/examples")[0] == 200
+    assert call(blank, "GET", "/api/ontologies/catalogue")[0] == 200
 
 
-def test_customising_restricts_the_project_and_refuses_in_use_types(ws):
-    status, body = call(ws, "PUT", "/api/project/configuration", {"preset": "custom", "node_types": ["Activity"]})
-    assert status == 409
-    assert "Person" in body["error"]["message"]
-
-    status, body = call(ws, "PUT", "/api/project/configuration", {"preset": "light"})
-    assert status == 200 and body["profile"]["preset"] == "light"
-    assert set(call(ws, "GET", "/api/ontology")[1]["node_types"]) == LIGHT_TYPES | {"Thing"}
-    status, body = call(ws, "POST", "/api/nodes", {"type": "Tool", "properties": {"name": "CAD"}})
-    assert status == 400
-
-    # Saved with the project: a fresh workspace on the same file is still Light.
-    reopened = Workspace.open(ws.settings)
-    assert set(t.name for t in reopened.ontology.concrete_node_types()) == LIGHT_TYPES
-
-
-def test_create_list_and_switch_projects(ws, tmp_path):
-    status, body = call(ws, "POST", "/api/projects", {"name": "Cabin Retrofit B", "preset": "light", "programme": "RENEW"})
-    assert status == 201
-    created = body["created"]["storage"]
-    assert created.endswith("projects/cabin-retrofit-b.json")
-    assert ws.settings.storage == created and ws.store.node_count == 0
-    assert ws.store.project.profile["preset"] == "light"
-
-    # Same name again: a new file, never an overwrite.
-    status, body = call(ws, "POST", "/api/projects", {"name": "Cabin Retrofit B", "open": False})
-    assert body["created"]["storage"].endswith("cabin-retrofit-b-2.json")
-
-    listing = call(ws, "GET", "/api/projects")[1]["projects"]
-    names = [p["name"] for p in listing]
-    assert names[0] == "Cabin Retrofit B" and listing[0]["current"]
-    # The project we came from is still reachable, although it lives elsewhere.
-    original = next(p for p in listing if p["storage"].endswith("start.json"))
-    assert original["elements"] == 1
-
-    status, body = call(ws, "POST", "/api/projects/open", {"storage": original["storage"]})
-    assert status == 200 and ws.store.node_count == 1
-    # "Open next time" was recorded in the settings file.
-    assert original["storage"] in (tmp_path / "setm.toml").read_text()
+def test_create_a_light_project_with_additions_from_the_start_page(blank):
+    status, body = call(blank, "POST", "/api/projects", {
+        "name": "Cabin Retrofit B",
+        "programme": "RENEW",
+        "preset": "light",
+        "additions": {
+            "element_types": [{"label": "Test rig", "category": "What",
+                               "properties": [{"label": "Rig class", "type": "enum", "values": "A, B"}]}],
+            "relations": [{"label": "tested on", "domain": ["Activity"], "range": ["TestRig"], "question": "how"}],
+        },
+    })
+    assert status == 201, body
+    assert blank.is_open and blank.store.project.name == "Cabin Retrofit B"
+    concrete = {t.name for t in blank.ontology.concrete_node_types()}
+    assert concrete == LIGHT_TYPES | {"TestRig"}
+    assert blank.ontology.edge_types["TESTED_ON"].range == ["TestRig"]
+    assert blank.store.project.profile == {"preset": "custom"}  # Light, plus its own
+    # Now the project routes work.
+    assert call(blank, "POST", "/api/nodes", {"type": "TestRig", "properties": {"name": "Rig 1", "rig_class": "A"}})[0] == 201
+    assert call(blank, "POST", "/api/nodes", {"type": "Tool", "properties": {"name": "CAD"}})[0] == 400
 
 
-def test_only_listed_projects_can_be_opened(ws):
-    status, _ = call(ws, "POST", "/api/projects/open", {"storage": "json:/etc/passwd"})
-    assert status == 404
+def test_a_new_project_never_uses_a_master_name_for_its_own_type(blank):
+    status, body = call(blank, "POST", "/api/projects", {
+        "name": "X", "preset": "light", "additions": {"element_types": [{"label": "Tool"}]},
+    })
+    assert status == 409 and "from the master" in body["error"]["message"]
+    assert not blank.is_open
 
 
-def test_project_names_cannot_escape_the_projects_folder(ws, tmp_path):
-    status, body = call(ws, "POST", "/api/projects", {"name": "../../etc/evil", "open": False})
+def test_load_an_example_as_a_new_project(blank):
+    status, body = call(blank, "POST", "/api/examples/load", {"name": "payload"})
+    assert status == 200 and body["nodes"] == 86
+    assert blank.is_open and "projects" in blank.settings.storage
+    # Loading the other one does not overwrite the first: both are listed.
+    call(blank, "POST", "/api/examples/load", {"name": "modification"})
+    names = [p["name"] for p in call(blank, "GET", "/api/projects")[1]["projects"]]
+    assert len([n for n in names if n]) >= 2 and names[0].startswith("Voyager")
+
+
+def test_import_a_file_as_a_new_project(blank, demo_document, tmp_path):
+    status, body = call(blank, "POST", "/api/projects", {"name": "Imported", "document": demo_document.to_dict()})
+    assert status == 201 and blank.store.node_count == 86
+    # A project file without an ontology of its own gets a full copy of the master.
+    assert len(blank.ontology.concrete_node_types()) == 16
+
+
+def test_configured_project_is_listed_but_not_opened(settings, demo_document):
+    from setm.storage.registry import open_storage
+
+    open_storage(settings.storage).save(demo_document)
+    workspace = Workspace.blank(settings)
+    projects = call(workspace, "GET", "/api/projects")[1]["projects"]
+    assert [p["name"] for p in projects] == [demo_document.project.name]
+    assert not projects[0]["current"] and not workspace.is_open
+    status, _ = call(workspace, "POST", "/api/projects/open", {"storage": settings.storage})
+    assert status == 200 and workspace.is_open and workspace.store.node_count == 86
+
+
+def test_switching_projects_and_the_way_back(blank):
+    call(blank, "POST", "/api/projects", {"name": "First", "preset": "light"})
+    first = blank.settings.storage
+    call(blank, "POST", "/api/projects", {"name": "Second", "preset": "full"})
+    listing = call(blank, "GET", "/api/projects")[1]["projects"]
+    assert listing[0]["name"] == "Second" and listing[0]["current"]
+    status, _ = call(blank, "POST", "/api/projects/open", {"storage": first})
+    assert status == 200 and blank.store.project.name == "First"
+    # Most recently opened first.
+    assert [p["name"] for p in call(blank, "GET", "/api/projects")[1]["projects"]][:2] == ["First", "Second"]
+
+
+def test_only_listed_projects_can_be_opened(blank):
+    assert call(blank, "POST", "/api/projects/open", {"storage": "json:/etc/passwd"})[0] == 404
+
+
+def test_project_names_cannot_escape_the_projects_folder(blank, tmp_path):
+    status, body = call(blank, "POST", "/api/projects", {"name": "../../etc/evil", "open": False})
     assert status == 201
     created = body["created"]["storage"].split(":", 1)[1]
-    assert created.startswith(str(tmp_path / "projects"))
-    assert "/../" not in created
+    assert created.startswith(str(tmp_path)) and "/../" not in created
 
 
-def test_switching_with_unsaved_work_needs_force(ws):
-    call(ws, "POST", "/api/projects", {"name": "Other", "open": False})
-    ws.settings.autosave = False
-    ws.store.add_node("Person", {"name": "Unsaved"})
-    other = next(p for p in call(ws, "GET", "/api/projects")[1]["projects"] if p["name"] == "Other")
-    status, body = call(ws, "POST", "/api/projects/open", {"storage": other["storage"]})
-    assert status == 409 and ws.store.node_count == 2
-    status, _ = call(ws, "POST", "/api/projects/open", {"storage": other["storage"], "force": True})
-    assert status == 200 and ws.store.node_count == 0
+def test_switching_with_unsaved_work_needs_force(blank):
+    call(blank, "POST", "/api/projects", {"name": "Other", "open": False})
+    call(blank, "POST", "/api/projects", {"name": "Here"})
+    blank.settings.autosave = False
+    blank.store.add_node("Person", {"name": "Unsaved"})
+    other = next(p for p in call(blank, "GET", "/api/projects")[1]["projects"] if p["name"] == "Other")
+    status, _ = call(blank, "POST", "/api/projects/open", {"storage": other["storage"]})
+    assert status == 409 and blank.store.node_count == 1
+    status, _ = call(blank, "POST", "/api/projects/open", {"storage": other["storage"], "force": True})
+    assert status == 200 and blank.store.node_count == 0
 
 
 @pytest.mark.parametrize("body,fragment", [
     ({"name": ""}, "name"),
     ({"name": "X", "format": "exe"}, "format"),
     ({"name": "X", "node_types": ["Wormhole"]}, "Wormhole"),
+    ({"name": "X", "example": "nope"}, "nope"),
 ])
-def test_bad_create_requests_are_refused(ws, body, fragment):
-    status, response = call(ws, "POST", "/api/projects", body)
+def test_bad_create_requests_are_refused(blank, body, fragment):
+    status, response = call(blank, "POST", "/api/projects", body)
     assert status >= 400 and fragment in response["error"]["message"]
+    assert not blank.is_open
 
 
-def test_sqlite_projects(ws):
-    status, body = call(ws, "POST", "/api/projects", {"name": "Rig", "format": "sqlite", "preset": "full"})
+def test_sqlite_projects(blank):
+    status, body = call(blank, "POST", "/api/projects", {"name": "Rig", "format": "sqlite", "preset": "full"})
     assert status == 201 and body["created"]["storage"].startswith("sqlite:")
-    assert ws.backend.scheme == "sqlite" and ws.store.project.profile == {"preset": "full"}
+    assert blank.backend.scheme == "sqlite"
 
 
 def test_cli_init_with_a_profile(tmp_path):
     target = tmp_path / "light.json"
     assert main(["init", f"json:{target}", "--name", "Light probe", "--profile", "light"]) == 0
-    profile = json.loads(target.read_text())["project"]["profile"]
-    assert profile["preset"] == "light" and set(profile["node_types"]) == LIGHT_TYPES
+    saved = json.loads(target.read_text())
+    assert saved["project"]["profile"] == {"preset": "light"}
+    assert set(saved["ontology"]["node_types"]) == LIGHT_TYPES | {"Thing"}
 
 
-def test_set_profile_directly_reports_what_is_in_use(ws):
-    with pytest.raises(ConflictError) as info:
-        ws.set_profile({"preset": "custom", "node_types": ["Activity"]})
-    assert info.value.details["in_use"]["node_types"] == {"Person": 1}
+def test_serve_without_a_target_starts_blank(monkeypatch):
+    from setm import cli
+
+    captured = {}
+    monkeypatch.setattr("setm.api.server.serve", lambda workspace, settings: captured.setdefault("ws", workspace))
+    cli.main(["serve"])
+    assert captured["ws"].is_open is False

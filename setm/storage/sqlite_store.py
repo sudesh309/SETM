@@ -98,6 +98,7 @@ class SqliteBackend(StorageBackend):
             nodes=nodes,
             edges=edges,
             revision=int(meta.get("revision", 0)),
+            ontology=json.loads(meta.get("ontology") or "{}"),
             updated_at=meta.get("updated_at", utc_now()),
         )
 
@@ -134,6 +135,7 @@ class SqliteBackend(StorageBackend):
                 ("ontology_version", document.ontology_version),
                 ("revision", str(document.revision)),
                 ("updated_at", document.updated_at),
+                ("ontology", json.dumps(document.ontology or {}, ensure_ascii=False)),
             ):
                 connection.execute(
                     "INSERT INTO meta (key, value) VALUES (?, ?) "

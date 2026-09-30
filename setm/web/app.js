@@ -1,14 +1,14 @@
 // Application controller: state, wiring and the inspector.
 
 import { api, download, setToken } from './api.js';
-import { GraphView } from './graph.js';
+import { MapView } from './map.js';
 import { buildPropertyForm, formatValue, h, readPropertyForm } from './forms.js';
 import {
-  renderKpis, renderMilestones, renderOntology, renderSettings, renderSystem, renderTools, renderWorkload,
+  downloadLink, renderKpis, renderMilestones, renderSettings, renderSystem, renderTools, renderWorkload,
 } from './views.js';
-import { renderTree } from './tree.js';
 import { renderOverview, topRisks } from './overview.js';
-import { buildTypePicker, describeProfile } from './configure.js';
+import { buildProjectWizard, renderHome } from './home.js';
+import { elementTypeForm, relationForm, renderOntologies } from './ontologies.js';
 
 const state = {
   ontology: null,
@@ -21,40 +21,59 @@ const state = {
   search: '',
   view: 'overview',
   dirty: false,
-  graphFitted: false,
+  projectOpen: false,
+  ontologyTab: 'project',
+  compareShowAll: false,
 };
 
 const el = (id) => document.getElementById(id);
-let graphView;
+let mapView;
+
+/** Views that make sense with no project open. */
+const WITHOUT_PROJECT = new Set(['home', 'settings']);
 
 // --------------------------------------------------------------------- init
 async function boot() {
   restoreTheme();
   window.addEventListener('setm:error', (event) => toast(event.detail, 'error'));
   wireChrome();
-  graphView = new GraphView(el('graph-canvas'), {
-    onSelect: (node) => selectNode(node.id),
-    onHover: showTooltip,
-    onBackground: () => selectNode(null),
+  mapView = new MapView(el('map'), {
+    onSelect: (id) => selectNode(id),
+    onClear: () => selectNode(null),
   });
 
   try {
-    state.ontology = await api.ontology();
-    await refreshGraph();
-    await refreshHeader();
-    buildFilters();
-    // The graph canvas starts hidden behind the overview, so it has no size to
-    // fit to yet; switchView('graph') fits it the first time it is shown.
-    await switchView(state.view);
+    const health = await refreshHeader();
+    if (health.project_open) {
+      await loadProject();
+      await switchView('overview');
+    } else {
+      await switchView('home');
+    }
   } catch (error) {
     toast(error.message, 'error');
   }
 }
 
+/** Read everything the page works from for the open project. */
+async function loadProject() {
+  state.ontology = await api.ontology();
+  await refreshGraph();
+  buildFilters();
+}
+
 async function refreshHeader() {
   const health = await api.health();
+  state.projectOpen = Boolean(health.project_open);
+  document.body.classList.toggle('no-project', !state.projectOpen);
   state.serverRevision = health.graph?.revision;
-  const project = health.graph ? await api.project() : {};
+  if (!state.projectOpen) {
+    el('project-name').textContent = 'No project open';
+    el('project-meta').textContent = 'Create, open or load one';
+    setDirty(false);
+    return health;
+  }
+  const project = await api.project();
   el('project-name').textContent = project.name || 'Untitled project';
   el('project-meta').textContent = [
     project.programme,
@@ -184,15 +203,22 @@ function applyFilters() {
 
   const decorated = visibleNodes.map((node) => {
     const spec = state.ontology.node_types[node.type] || {};
-    return { ...node, color: spec.color || node.color, shape: spec.shape || 'round' };
+    return {
+      id: node.id,
+      label: node.label,
+      type: node.type,
+      type_label: spec.label || node.type,
+      category: spec.category || 'Other',
+      color: spec.color || node.color,
+      status: node.properties?.status || node.properties?.risk_status || '',
+    };
   });
   const decoratedEdges = visibleEdges.map((edge) => {
     const spec = state.ontology.edge_types[edge.type] || {};
-    return { ...edge, color: spec.color, style: spec.style, weight: weightOf(edge) };
+    return { id: edge.id, source: edge.source, target: edge.target, label: spec.label || edge.type, color: spec.color };
   });
 
-  graphView.setData(decorated, decoratedEdges);
-  graphView.select(state.selectedId);
+  mapView.setData(decorated, decoratedEdges, state.graph.nodes.length);
   updateStats(visibleNodes.length, visibleEdges.length);
 }
 
@@ -206,12 +232,12 @@ function updateStats(nodeCount, edgeCount) {
 // --------------------------------------------------------------- inspector
 async function selectNode(id) {
   state.selectedId = id;
-  graphView.select(id);
+  if (id && mapView.focusId !== id) mapView.focus(id);
   const inspector = el('inspector');
   if (!id) {
     inspector.replaceChildren(h('div', { class: 'empty-state' }, [
       h('h3', { text: 'Nothing selected' }),
-      h('p', { text: "Pick an element in the graph, or create one, to see its properties and full traceability." }),
+      h('p', { text: 'Click an element on the map to focus on it and see its properties and full traceability.' }),
     ]));
     return;
   }
@@ -244,7 +270,7 @@ function renderInspector(trace) {
       h('button', { class: 'btn', text: 'Edit', onClick: () => openNodeDialog(node.id) }),
       h('button', { class: 'btn', text: 'Link…', onClick: () => openEdgeDialog(node.id) }),
       h('button', { class: 'btn', text: 'Report…', onClick: () => openReportDialog(node.id) }),
-      h('button', { class: 'btn', text: 'Focus', onClick: () => { graphView.centreOn(node.id); } }),
+      h('button', { class: 'btn', text: 'Show all', onClick: () => mapView.clearFocus() }),
       h('button', { class: 'btn btn-danger', text: 'Delete', onClick: () => deleteNode(node.id) }),
     ]),
   ]);
@@ -310,18 +336,19 @@ function renderInspector(trace) {
 }
 
 // ------------------------------------------------------------------ dialogs
-function openModal(title, body, onConfirm, { confirmLabel = 'Save', wide = false, cancel = true } = {}) {
+function openModal(title, body, onConfirm, { confirmLabel = 'Save', wide = false, cancel = true, confirm = true } = {}) {
   el('modal-backdrop').querySelector('.modal').classList.toggle('modal-wide', wide);
   el('modal-cancel').classList.toggle('hidden', !cancel);
+  el('modal-confirm').classList.toggle('hidden', !confirm);
   el('modal-title').textContent = title;
   el('modal-body').replaceChildren(body);
   el('modal-error').textContent = '';
   el('modal-confirm').textContent = confirmLabel;
   el('modal-backdrop').classList.remove('hidden');
 
-  const confirm = el('modal-confirm');
-  const clone = confirm.cloneNode(true);
-  confirm.replaceWith(clone);
+  const confirmButton = el('modal-confirm');
+  const clone = confirmButton.cloneNode(true);
+  confirmButton.replaceWith(clone);
   clone.addEventListener('click', async () => {
     clone.disabled = true;
     try {
@@ -384,14 +411,14 @@ async function openNodeDialog(nodeId = null, defaultType = null) {
     if (isNew) {
       const created = await api.createNode({ type: typeSelect.value, properties });
       await applyChange({ node: created });
-      if (state.view === 'graph') await selectNode(created.id);
+      if (state.view === 'dashboard') await selectNode(created.id);
       else await switchView(state.view);
       toast(`Created ${spec.label} "${created.properties.name || created.id}"`, 'success');
     } else {
       const retyped = typeSelect.value !== existing.type;
       const updated = await api.updateNode(nodeId, { type: typeSelect.value, properties });
       await applyChange({ node: updated }, retyped ? 2 : 1);
-      if (state.view === 'graph') await selectNode(nodeId);
+      if (state.view === 'dashboard') await selectNode(nodeId);
       else await switchView(state.view);
       toast('Element updated', 'success');
     }
@@ -461,7 +488,7 @@ async function openEdgeDialog(sourceId = null) {
       properties,
     });
     await applyChange({ edge: created });
-    if (state.view === 'graph') await selectNode(sourceSelect.value);
+    if (state.view === 'dashboard') await selectNode(sourceSelect.value);
     else await switchView(state.view);
     toast('Relation created', 'success');
   }, { confirmLabel: 'Create' });
@@ -556,7 +583,7 @@ async function deleteNode(id) {
   openModal('Delete element', body, async () => {
     const result = await api.deleteNode(id);
     await applyChange({ deletedNode: result.deleted_node, deletedEdges: result.deleted_edges });
-    if (state.view === 'graph') await selectNode(null);
+    if (state.view === 'dashboard') await selectNode(null);
     else await switchView(state.view);
     toast(`Deleted element and ${result.deleted_edges.length} relation(s)`, 'success');
   }, { confirmLabel: 'Delete' });
@@ -567,7 +594,7 @@ async function deleteEdge(edgeId) {
     const result = await api.deleteEdge(edgeId);
     await applyChange({ deletedEdges: [result.deleted_edge] });
     if (state.selectedId) await selectNode(state.selectedId);
-    if (state.view !== 'graph') await switchView(state.view);
+    if (state.view !== 'dashboard') await switchView(state.view);
     toast('Relation removed', 'success');
   } catch (error) {
     toast(error.message, 'error');
@@ -612,27 +639,18 @@ function wireChrome() {
     state.search = event.target.value;
     applyFilters();
   });
-
-  el('focus-mode').addEventListener('change', (event) => {
-    graphView.focusMode = event.target.checked;
-    graphView._draw();
+  // Enter jumps to the first match: the quickest way to focus on something.
+  el('search').addEventListener('keydown', (event) => {
+    if (event.key !== 'Enter') return;
+    const first = mapView.nodes[0];
+    if (first) { mapView.focus(first.id); selectNode(first.id); }
   });
-  el('focus-depth').addEventListener('input', (event) => {
-    graphView.focusDepth = Number(event.target.value);
-    el('focus-depth-value').value = event.target.value;
-    graphView._draw();
-  });
-  el('show-labels').addEventListener('change', (event) => graphView.setShowLabels(event.target.checked));
 
   el('btn-new-node').addEventListener('click', () => openNodeDialog());
   el('btn-new-edge').addEventListener('click', () => openEdgeDialog(state.selectedId));
-  el('btn-relayout').addEventListener('click', () => { graphView.relayout(); });
-  el('zoom-in').addEventListener('click', () => graphView.zoom(1.2));
-  el('zoom-out').addEventListener('click', () => graphView.zoom(1 / 1.2));
-  el('zoom-fit').addEventListener('click', () => graphView.fit());
 
   el('btn-save').addEventListener('click', save);
-  el('btn-projects').addEventListener('click', openProjectsDialog);
+  el('btn-projects').addEventListener('click', () => switchView('home'));
   el('btn-theme').addEventListener('click', toggleTheme);
   el('modal-close').addEventListener('click', closeModal);
   el('modal-cancel').addEventListener('click', closeModal);
@@ -656,7 +674,7 @@ function wireChrome() {
     if (event.key === '/') { event.preventDefault(); el('search').focus(); }
     if (event.key === 'n') openNodeDialog();
     if (event.key === 'l') openEdgeDialog(state.selectedId);
-    if (event.key === 'f') graphView.fit();
+    if (event.key === 'f') mapView.clearFocus();
     if (event.key === 'r' && state.selectedId) openReportDialog(state.selectedId);
     if ((event.key === 's') && (event.metaKey || event.ctrlKey)) { event.preventDefault(); save(); }
   });
@@ -668,8 +686,10 @@ function closeAdminMenu() {
 }
 
 async function switchView(view) {
+  // Nothing but the start page and settings works before a project is open.
+  if (!state.projectOpen && !WITHOUT_PROJECT.has(view)) view = 'home';
   state.view = view;
-  // Ontology/System/Settings live in the gear menu, so some views have no tab
+  // Ontologies/System/Settings live in the gear menu, so some views have no tab
   // in the bar: nothing is highlighted for those, and the menu marks its own.
   for (const tab of document.querySelectorAll('.tab')) tab.classList.toggle('active', tab.dataset.view === view);
   for (const item of document.querySelectorAll('.menu-item')) item.classList.toggle('active', item.dataset.view === view);
@@ -678,7 +698,9 @@ async function switchView(view) {
   }
   closeAdminMenu();
   try {
-    if (view === 'overview') {
+    if (view === 'home') {
+      await showHome();
+    } else if (view === 'overview') {
       const report = await api.kpi('report');
       renderOverview(el('overview-body'), report, topRisks(state.graph.nodes, state.ontology), {
         onOpen: openFromPage,
@@ -692,30 +714,10 @@ async function switchView(view) {
     } else if (view === 'tools') {
       const data = await api.kpi('tool_usage');
       renderTools(el('tools-body'), data.items || [], pageActions('Tool'));
-    } else if (view === 'tree') {
-      renderTree(el('tree-body'), state.graph.nodes, state.ontology, {
-        onNew: () => openNodeDialog(),
-        onOpen: openFromPage,
-        onEdit: (id) => openNodeDialog(id),
-        onDelete: (id) => deleteNode(id),
-        fetchTrace: (id) => api.trace(id, 1),
-      });
     } else if (view === 'kpi') {
       renderKpis(el('kpi-body'), await api.kpi('report'), pageActions(null));
-    } else if (view === 'ontology') {
-      renderOntology(el('ontology-body'), state.ontology, {
-        configuration: await api.configuration(),
-        onCustomise: openCustomiseDialog,
-        onNew: (typeName) => openNodeDialog(null, typeName),
-        onReload: async () => {
-          const result = await api.reloadOntology();
-          state.ontology = result.ontology;
-          buildFilters();
-          applyFilters();
-          await switchView('ontology');
-          toast('Ontology reloaded', 'success');
-        },
-      });
+    } else if (view === 'ontologies') {
+      await showOntologies();
     } else if (view === 'settings') {
       await showSettings();
     } else if (view === 'system') {
@@ -729,14 +731,9 @@ async function switchView(view) {
           switchView('system');
         },
       });
-    } else if (view === 'graph') {
-      graphView._resize();
-      // First time the canvas actually has a size: frame the graph.
-      if (!state.graphFitted) {
-        state.graphFitted = true;
-        graphView.fit();
-        setTimeout(() => graphView.fit(), 1400);  // the layout is still settling
-      }
+    } else if (view === 'dashboard') {
+      // The map was laid out while hidden: draw its links now it has a size.
+      mapView.render();
     }
   } catch (error) {
     toast(error.message, 'error');
@@ -756,10 +753,9 @@ async function showSettings(status = '') {
       if (result.changed.length) toast(result.saved_to ? 'Settings saved' : 'Settings applied', 'success');
       return result;
     },
-    onReload: async (message) => { await refreshAll(); await showSettings(message); },
+    onReload: async (message) => { if (state.projectOpen) await refreshAll(); await showSettings(message); },
     onTestStorage: (payload) => api.testStorage(payload),
     onOfferReopen: (result) => confirmReopen(result),
-    onLoadExample: (name) => confirmLoadExample(name),
     onLoadJson: (text, merge, filename) => confirmLoadJson(text, merge, filename),
   }, status);
 }
@@ -803,28 +799,6 @@ function confirmReopen(result) {
   }, { confirmLabel: 'Re-open' });
 }
 
-/** Loading an example replaces the whole current graph, so confirm first if there's unsaved work. */
-async function confirmLoadExample(name) {
-  const proceed = async () => {
-    const result = await api.loadExample(name);
-    toast(`Loaded example: ${result.nodes} elements, ${result.edges} relations`, 'success');
-    await refreshAll();
-    await selectNode(null);
-    await switchView('graph');
-  };
-
-  if (!state.dirty) {
-    await proceed();
-    return;
-  }
-
-  const body = h('div', {}, [
-    h('p', { text: 'This replaces everything in the current project.' }),
-    h('p', { class: 'setting-warn', text: 'There are unsaved changes that will be lost.' }),
-  ]);
-  openModal('Load example?', body, proceed, { confirmLabel: 'Load, discard changes' });
-}
-
 /** Load a JSON graph file the user picked in Settings. */
 async function confirmLoadJson(text, merge, filename) {
   let document;
@@ -841,7 +815,7 @@ async function confirmLoadJson(text, merge, filename) {
       toast(`Loaded ${filename}: ${result.nodes} elements, ${result.edges} relations`, 'success');
       await refreshAll();
       await selectNode(null);
-      await switchView('graph');
+      await switchView('dashboard');
     } catch (error) {
       toast(error.message, 'error');
     }
@@ -861,157 +835,237 @@ async function confirmLoadJson(text, merge, filename) {
 }
 
 async function openFromPage(id) {
-  await switchView('graph');
+  await switchView('dashboard');
+  mapView.focus(id);
   await selectNode(id);
-  graphView.centreOn(id);
 }
 
 // ----------------------------------------------------------------- projects
-// A project is one storage target with a profile: the element types and
-// relations it uses. Creating, opening and customising all end the same way --
-// the ontology the page works from changes, so everything is re-read.
+// The start page: create, open or load a project. Every path ends the same
+// way -- the project (and its own ontology) changes, so everything is re-read.
 
 async function afterProjectChange(message) {
-  state.ontology = await api.ontology();
   state.hiddenNodeTypes.clear();
   state.hiddenEdgeTypes.clear();
-  await refreshAll();
+  state.selectedId = null;
+  await refreshHeader();
+  await loadProject();
+  mapView.clearFocus();
   await selectNode(null);
-  state.graphFitted = false;
-  await switchView(state.view === 'ontology' ? 'ontology' : 'overview');
+  await switchView('overview');
   toast(message, 'success');
 }
 
-async function openProjectsDialog() {
-  let listing;
-  try {
-    listing = await api.projects();
-  } catch (error) {
-    toast(error.message, 'error');
-    return;
-  }
-  const list = h('div', { class: 'project-list' });
-  for (const project of listing.projects) {
-    const preset = project.preset ? project.preset.charAt(0).toUpperCase() + project.preset.slice(1) : '';
-    const detail = project.error
-      ? `Cannot be read: ${project.error}`
-      : [project.programme, `${project.elements} elements`, `${preset} configuration`].filter(Boolean).join(' · ');
-    list.append(h('div', { class: `project-row${project.current ? ' current' : ''}` }, [
-      h('div', { class: 'project-row-main' }, [
-        h('strong', { text: project.name }),
-        h('div', { class: 'muted', text: detail }),
-        h('div', { class: 'mono faint', text: project.storage }),
-      ]),
-      project.current
-        ? h('span', { class: 'pill', text: 'open' })
-        : h('button', {
-          class: 'btn',
-          text: 'Open',
-          disabled: Boolean(project.error),
-          onClick: () => confirmOpenProject(project),
-        }),
-    ]));
-  }
-  const body = h('div', {}, [
-    h('div', { class: 'projects-head' }, [
-      h('p', { class: 'help', text: `Projects are kept in ${listing.projects_dir}. Each has its own element types and relations.` }),
-      // In the body, not the footer: the footer button closes the dialog once
-      // its action is done, which would close the New project dialog with it.
-      h('button', { class: 'btn btn-primary', id: 'btn-new-project', text: '+ New project', onClick: openNewProjectDialog }),
-    ]),
-    list,
-  ]);
-  openModal('Projects', body, async () => {}, { confirmLabel: 'Close', wide: true, cancel: false });
+async function showHome() {
+  const [listing, examples] = await Promise.all([api.projects(), api.examples()]);
+  renderHome(el('home-body'), listing, examples.examples, {
+    onCreate: openNewProjectWizard,
+    onOpen: confirmOpenProject,
+    onLoadExample: (name) => withUnsavedCheck('Load example?', 'Loading an example opens it as a new project.', async (force) => {
+      const result = await api.loadExample(name, force);
+      await afterProjectChange(`Loaded ${result.created.name} as a new project`);
+    }),
+    onImport: (text, filename) => {
+      let document;
+      try {
+        document = JSON.parse(text);
+      } catch (error) {
+        toast(`${filename} is not valid JSON: ${error.message}`, 'error');
+        return;
+      }
+      const name = document?.project?.name && document.project.name !== 'Untitled project'
+        ? document.project.name : filename.replace(/\.json$/i, '');
+      return withUnsavedCheck('Import project?', `${filename} becomes a new project.`, async (force) => {
+        const result = await api.createProject({ name, document, open: true, force });
+        await afterProjectChange(`Imported ${result.created.name} as a new project`);
+      });
+    },
+  });
 }
 
-async function confirmOpenProject(project) {
-  const proceed = async () => {
-    await api.openProject(project.storage, state.dirty);
-    await afterProjectChange(`Opened ${project.name}`);
-  };
-  if (!state.dirty) {
+/** Run an action that switches project, asking first if unsaved work would be lost. */
+async function withUnsavedCheck(title, text, action) {
+  if (!state.projectOpen || !state.dirty) {
     try {
-      await proceed();
-      closeModal();
+      await action(false);
     } catch (error) {
-      el('modal-error').textContent = error.message;
+      toast(error.message, 'error');
     }
     return;
   }
   const body = h('div', {}, [
-    h('p', { text: `Open ${project.name}?` }),
-    h('p', { class: 'setting-warn', text: 'The project you are in has unsaved changes. Opening another discards them — press Save first to keep them.' }),
+    h('p', { text }),
+    h('p', { class: 'setting-warn', text: 'The project you are in has unsaved changes. Continuing discards them — press Save first to keep them.' }),
   ]);
-  openModal('Open project?', body, proceed, { confirmLabel: 'Open, discard changes' });
+  openModal(title, body, () => action(true), { confirmLabel: 'Continue, discard changes' });
 }
 
-async function openNewProjectDialog() {
-  const config = await api.configuration();
-  // A new project starts Light: easy to grow, and one click from Full.
-  const light = config.presets.find((p) => p.name === 'light');
-  const picker = buildTypePicker(config, { initial: light ? { ...light, preset: 'light' } : undefined });
-
-  const field = (name, label, attributes = {}) => h('div', { class: `form-field${attributes.required ? ' required' : ''}` }, [
-    h('label', { for: `np-${name}`, text: label }),
-    attributes.textarea
-      ? h('textarea', { id: `np-${name}`, name, rows: 2 })
-      : h('input', { id: `np-${name}`, name, type: 'text', required: attributes.required, placeholder: attributes.placeholder || '' }),
-  ]);
-  const format = h('select', { id: 'np-format', name: 'format' }, [
-    h('option', { value: 'json', text: 'JSON file — simplest, easy to diff and back up' }),
-    h('option', { value: 'sqlite', text: 'SQLite database — better for large projects' }),
-  ]);
-  const body = h('div', { class: 'new-project' }, [
-    h('div', { class: 'form-group-title', text: 'Project' }),
-    h('div', { class: 'np-grid' }, [
-      field('name', 'Name', { required: true, placeholder: 'e.g. Cabin retrofit, phase B' }),
-      field('programme', 'Programme'),
-      field('phase', 'Phase', { placeholder: 'e.g. B' }),
-      field('chief_engineer', 'Chief engineer'),
-    ]),
-    field('description', 'Description', { textarea: true }),
-    h('div', { class: 'form-field' }, [h('label', { for: 'np-format', text: 'Stored as' }), format]),
-    h('div', { class: 'form-group-title', text: 'Configuration — which element types and relations this project uses' }),
-    picker.element,
-    state.dirty
-      ? h('p', { class: 'setting-warn', text: 'The project you are in has unsaved changes. Creating a new project opens it and discards them — press Save first to keep them.' })
-      : null,
-  ]);
-
-  openModal('New project', body, async () => {
-    const value = (name) => body.querySelector(`[name="${name}"]`).value.trim();
-    if (!value('name')) throw new Error('Give the project a name');
-    const result = await api.createProject({
-      name: value('name'),
-      programme: value('programme'),
-      phase: value('phase'),
-      chief_engineer: value('chief_engineer'),
-      description: value('description'),
-      format: format.value,
-      ...picker.value(),
-      open: true,
-      force: state.dirty,
-    });
-    await afterProjectChange(`Created and opened ${result.created.name}`);
-  }, { confirmLabel: 'Create project', wide: true });
-}
-
-async function openCustomiseDialog() {
-  const config = await api.configuration();
-  const picker = buildTypePicker(config, {
-    initial: { ...config.active, preset: config.profile?.preset || 'full' },
-    lockInUse: true,
+function confirmOpenProject(project) {
+  return withUnsavedCheck('Open project?', `Open ${project.name}?`, async (force) => {
+    await api.openProject(project.storage, force);
+    await afterProjectChange(`Opened ${project.name}`);
   });
-  const body = h('div', {}, [
-    h('p', { class: 'help', text: 'Choose the element types and relations this project uses. Anything that already has elements stays on — delete or retype those elements first to switch it off.' }),
-    picker.element,
-  ]);
-  openModal('Customise this project', body, async () => {
-    await api.setConfiguration(picker.value());
-    await afterProjectChange('Project configuration updated');
-  }, { confirmLabel: 'Apply', wide: true });
 }
 
+async function openNewProjectWizard() {
+  const config = await api.catalogue();
+  const setError = (message) => { el('modal-error').textContent = message; };
+  const wizard = buildProjectWizard(config, {
+    dirty: state.projectOpen && state.dirty,
+    setError,
+    onCreate: async (payload) => {
+      const result = await api.createProject(payload);
+      closeModal();
+      await afterProjectChange(`Created and opened ${result.created.name}`);
+    },
+  });
+  openModal('New project', wizard, async () => {}, { wide: true, confirm: false });
+}
+
+// --------------------------------------------------------------- ontologies
+// The project's own ontology, the master, and copying between them.
+
+async function showOntologies() {
+  const [summary, compare] = await Promise.all([api.ontologies(), api.compareOntologies()]);
+  await renderOntologies(el('ontologies-body'), { summary, compare, project: state.ontology }, {
+    tab: state.ontologyTab,
+    compareShowAll: state.compareShowAll,
+    onTab: (tab) => { state.ontologyTab = tab; showOntologies(); },
+    onCompareShowAll: (value) => { state.compareShowAll = value; showOntologies(); },
+    loadMaster: () => api.masterOntology(),
+    downloadLink,
+    onReloadMaster: async () => {
+      const result = await api.reloadMaster();
+      toast(`Master reloaded (v${result.version})`, 'success');
+      showOntologies();
+    },
+    onAddType: () => editTypeDialog(null),
+    onEditType: (name) => editTypeDialog(name),
+    onAddRelation: () => editRelationDialog(null),
+    onEditRelation: (name) => editRelationDialog(name),
+    onRemove: (kind, name, label) => {
+      const body = h('div', {}, [
+        h('p', { text: `Remove "${label}" from this project's ontology?` }),
+        h('p', { class: 'help', text: 'Refused if any element or relation of the project still uses it. The master is not affected.' }),
+      ]);
+      openModal('Remove from project', body, async () => {
+        await api.removeProjectType(kind, name);
+        await afterOntologyChange(`Removed ${label}`);
+      }, { confirmLabel: 'Remove' });
+    },
+    onAddFromMaster: addFromMasterDialog,
+    onMerge: mergeDialog,
+  });
+}
+
+/** The project's ontology changed: forms, filters and the map follow. */
+async function afterOntologyChange(message) {
+  state.ontology = await api.ontology();
+  await refreshGraph();
+  buildFilters();
+  await showOntologies();
+  toast(message, 'success');
+}
+
+function editTypeDialog(name) {
+  const existing = name ? state.ontology.node_types[name] : null;
+  const form = elementTypeForm(existing);
+  openModal(existing ? `Edit ${existing.label}` : 'New element type (this project only)', form.element, async () => {
+    const data = form.read();
+    if (!existing && !data.label) throw new Error('Give the element type a name');
+    const result = existing ? await api.editProjectType('element-types', name, data) : await api.addProjectType('element-types', data);
+    await afterOntologyChange(existing ? `Updated ${existing.label}` : `Added element type ${result.name}`);
+  }, { confirmLabel: existing ? 'Save' : 'Add', wide: true });
+}
+
+function editRelationDialog(name) {
+  const existing = name ? state.ontology.edge_types[name] : null;
+  const types = Object.values(state.ontology.node_types).filter((t) => !t.abstract)
+    .sort((a, b) => a.label.localeCompare(b.label)).map((t) => ({ name: t.name, label: t.label }));
+  const form = relationForm(types, existing);
+  openModal(existing ? `Edit ${existing.label}` : 'New relation (this project only)', form.element, async () => {
+    const data = form.read();
+    if (!existing && !data.label) throw new Error('Give the relation a name');
+    const result = existing ? await api.editProjectType('relations', name, data) : await api.addProjectType('relations', data);
+    await afterOntologyChange(existing ? `Updated ${existing.label}` : `Added relation ${result.name}`);
+  }, { confirmLabel: existing ? 'Save' : 'Add', wide: true });
+}
+
+async function addFromMasterDialog() {
+  const compare = await api.compareOntologies();
+  const available = compare.items.filter((i) => i.status === 'master_only' && !i.abstract);
+  if (!available.length) {
+    toast('This project already has everything the master offers', 'info');
+    return;
+  }
+  const list = h('div', { class: 'check-columns' });
+  for (const kind of ['element_type', 'relation']) {
+    const items = available.filter((i) => i.kind === kind).sort((a, b) => a.label.localeCompare(b.label));
+    if (!items.length) continue;
+    list.append(h('fieldset', { class: 'picker-group' }, [
+      h('legend', { text: kind === 'relation' ? 'Relations' : 'Element types' }),
+      ...items.map((item) => h('label', { class: 'picker-item' }, [
+        h('input', { type: 'checkbox', name: 'master-item', value: `${item.kind}:${item.name}` }),
+        h('span', { text: item.label }),
+        item.kind === 'relation' ? h('span', { class: 'muted picker-ends', text: `${item.domain.join('/')} → ${item.range.join('/')}` }) : null,
+      ])),
+    ]));
+  }
+  const body = h('div', {}, [
+    h('p', { class: 'help', text: 'Copy element types and relations from the master into this project. A relation brings the element types it needs.' }),
+    list,
+  ]);
+  openModal('Add from master', body, async () => {
+    const items = [...body.querySelectorAll('input[name="master-item"]:checked')].map((box) => {
+      const [kind, ...rest] = box.value.split(':');
+      return { kind, name: rest.join(':') };
+    });
+    if (!items.length) throw new Error('Tick at least one');
+    const result = await api.mergeOntologies('to_project', items, false);
+    await afterOntologyChange(`Added ${describeMerge(result)} from the master`);
+  }, { confirmLabel: 'Add to project', wide: true });
+}
+
+function describeMerge(result) {
+  const names = [...result.copied, ...result.dependencies].map((i) => i.name);
+  return names.length === 1 ? names[0] : `${names.length} items`;
+}
+
+/** Preview a merge (what comes with it, what is kept), then apply it. */
+async function mergeDialog(direction, items) {
+  let preview;
+  try {
+    preview = await api.mergeOntologies(direction, items, true);
+  } catch (error) {
+    toast(error.message, 'error');
+    return;
+  }
+  const where = direction === 'to_master' ? 'the master ontology' : 'this project';
+  const body = h('div', { class: 'merge-preview' }, [
+    h('p', { text: `Copy into ${where}:` }),
+    h('ul', {}, preview.copied.map((i) => h('li', { text: `${i.name} (${i.kind.replace('_', ' ')})` }))),
+    preview.dependencies.length ? h('p', { text: 'Also brings, because they are needed:' }) : null,
+    preview.dependencies.length ? h('ul', {}, preview.dependencies.map((i) => h('li', { text: `${i.name} (${i.kind.replace('_', ' ')})` }))) : null,
+    ...preview.notes.map((note) => h('p', { class: 'help', text: note })),
+    ...preview.skipped.map((s) => h('p', { class: 'setting-warn', text: `Skipped ${s.name}: ${s.reason}` })),
+    direction === 'to_master'
+      ? h('p', { class: 'help', text: 'The master is saved to its file with a new version number. Other projects take the change only when they copy it themselves.' })
+      : h('p', { class: 'help', text: 'Properties this project already uses are kept.' }),
+  ]);
+  if (!preview.copied.length && !preview.dependencies.length) {
+    toast('Nothing to copy: both sides already agree on these', 'info');
+    return;
+  }
+  openModal(direction === 'to_master' ? 'Copy to the master' : 'Copy to this project', body, async () => {
+    const result = await api.mergeOntologies(direction, items, false);
+    if (direction === 'to_project') {
+      await afterOntologyChange(`Copied ${describeMerge(result)} into this project`);
+    } else {
+      await showOntologies();
+      toast(`Copied ${describeMerge(result)} to the master (now v${result.master_version})`, 'success');
+    }
+  }, { confirmLabel: 'Copy' });
+}
 async function refreshAll() {
   await refreshGraph();
   await refreshHeader();
@@ -1105,25 +1159,6 @@ function setDirty(value) {
   el('dirty-flag').classList.toggle('hidden', !value);
 }
 
-function showTooltip(node, event) {
-  const tooltip = el('tooltip');
-  if (!node) { tooltip.classList.add('hidden'); return; }
-  const spec = state.ontology.node_types[node.type] || {};
-  const rows = Object.entries(node.properties || {})
-    .filter(([key]) => ['status', 'maturity', 'activity_type', 'gate', 'role', 'priority'].includes(key))
-    .map(([key, value]) => `${key.replace(/_/g, ' ')}: ${formatValue(value)}`);
-
-  tooltip.replaceChildren(
-    h('div', { class: 'tt-type', text: spec.label || node.type }),
-    h('div', { style: 'font-weight:600;margin:2px 0 3px', text: node.label }),
-    ...rows.map((row) => h('div', { class: 'muted', style: 'font-size:11px', text: row })),
-  );
-  tooltip.classList.remove('hidden');
-  const wrap = tooltip.parentElement.getBoundingClientRect();
-  tooltip.style.left = `${Math.min(event.clientX - wrap.left + 14, wrap.width - 330)}px`;
-  tooltip.style.top = `${event.clientY - wrap.top + 14}px`;
-}
-
 function toast(message, kind = 'info') {
   const node = h('div', { class: `toast ${kind}`, text: message });
   el('toasts').append(node);
@@ -1139,7 +1174,7 @@ function toggleTheme() {
   const next = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark';
   document.documentElement.dataset.theme = next;
   localStorage.setItem('setm.theme', next);
-  graphView._draw();
+  mapView._drawLinks();
 }
 
 boot();
